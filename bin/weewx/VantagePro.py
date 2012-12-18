@@ -515,7 +515,6 @@ class Vantage(weewx.abstractstation.AbstractStation):
                 # Check to see if the time stamps are declining, which would
                 # signal that we are done. 
                 if _record['dateTime'] is None or _record['dateTime'] <= _last_good_ts - self.max_dst_jump:
-                    print "Stop.", weeutil.weeutil.timestamp_to_string(_record['dateTime']), weeutil.weeutil.timestamp_to_string(_last_good_ts)
                     # The time stamp is declining. We're done.
                     syslog.syslog(syslog.LOG_DEBUG, "VantagePro: DMPAFT complete: page timestamp %s less than final timestamp %s"\
                                   % (weeutil.weeutil.timestamp_to_string(_record['dateTime']),
@@ -703,6 +702,10 @@ class Vantage(weewx.abstractstation.AbstractStation):
         """Return the firmware date as a string. """
         return self.port.send_command('VER\n')[0]
         
+    def getFirmwareVersion(self):
+        """Return the firmware version as a string."""
+        return self.port.send_command('NVER\n')[0]
+    
     def getStnInfo(self):
         """Return lat / lon, time zone, etc."""
         

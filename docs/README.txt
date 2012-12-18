@@ -4,9 +4,18 @@ CHANGE HISTORY
 For complete documentation, see http://www.weewx.com/docs
 
 
-2.0.2 11/07/12
+2.X.X 
+
+config_vp.py now returns the console version number if available (older consoles
+do not offer this).
+
+
+2.0.2 11/23/12
 
 Now allows both the archive and stats data to be held in the same database.
+
+Improved chances of  weewx.Archive being reused by allowing  optional table name
+to be specified.
 
 
 2.0.1 11/05/12
