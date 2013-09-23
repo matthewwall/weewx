@@ -7,7 +7,7 @@
 # a database.  It expects the following parameters:
 #
 # station_url
-# description (location)
+# description
 # latitude
 # longitude
 # station_type
@@ -191,9 +191,6 @@ sub registerstation {
     }
     if($rec{description} =~ /'/) {
         push @msgs, 'description cannot contain single quotes';
-    }
-    if($rec{description} !~ /\S/) {
-        push @msgs, 'description must be something reasonable';
     }
     if($rec{station_type} =~ /'/) {
         push @msgs, 'station_type cannot contain single quotes';

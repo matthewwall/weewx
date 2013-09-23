@@ -5,7 +5,7 @@
   This will periodically do a http GET with the following information:
 
     station_url           should be world-accessible
-    description           description of station location
+    description           description of station
     latitude, longitude   must be in decimal format
     station_type          for example Vantage, FineOffsetUSB
 
@@ -26,6 +26,7 @@
 
 import platform
 import re
+import socket
 import sys
 import syslog
 import urllib
@@ -54,7 +55,7 @@ class StationRegistry(weewx.restful.REST):
       [Required]
 
       description: description of station location
-      [Optional.  Default is location from weewx.conf]
+      [Optional.  Default is None]
 
       latitude: station latitude
       [Optional.  Default is latitude from weewx.conf]
@@ -79,8 +80,6 @@ class StationRegistry(weewx.restful.REST):
         self.server_url = kwargs.get('server_url', WEEWX_SERVER_URL)
         self.station_url = kwargs['station_url']
         self.description = kwargs.get('description', None)
-        if self.description is None:
-            self.description = kwargs.get('location', None)
         self.latitude = float(kwargs['latitude'])
         self.longitude = float(kwargs['longitude'])
         self.hardware = kwargs['hardware']
@@ -106,6 +105,8 @@ class StationRegistry(weewx.restful.REST):
             r'(?:/?|[/?]\S+)$', re.IGNORECASE)
 
         self._validateParameters()
+
+        loginf('station will register with %s' % self.server_url)
 
     def postData(self, archive, time_ts):
         now = time.time()

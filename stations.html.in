@@ -80,7 +80,11 @@ function attachinfo(marker, idx) {
   google.maps.event.addListener(marker, 'click', function() {
     var str = '<p class="location">';
     str += '<a href="' + sites[idx].url + '">';
-    str += sites[idx].description + '</a>';
+    if(sites[idx].description.length > 0) {
+      str += sites[idx].description + '</a>';
+    } else {
+      str += sites[idx].url;
+    }
     str += '</p>';
     str += '<p class="location_details">';
     str += sites[idx].latitude + ', ' + sites[idx].longitude + '<br/>';
