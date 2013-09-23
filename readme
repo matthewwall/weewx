@@ -1,0 +1,51 @@
+weewx station registry
+31jan2013 mwall
+
+this is a quick hack to enable weewx stations to phone home so they can be
+plotted on a google map.  stations phone home periodically with their url,
+location, lat/lon, and station type.  these data are plotted on a map.  if
+a station does not phone home after a certain period of time it will be
+removed from the map.
+
+register.cgi - runs on the web server, accepts connections from stations
+
+register.py - weewx extension that enables a station to register
+
+mkstations.pl - generate the html page by injecting station data into template
+
+stations.html.in - template html page
+
+
+to enable this module:
+
+1) copy register.py to bin/weewx
+
+2) add the following to the weewx.conf file:
+
+[StdRESTful]
+  [[StationRegistry]]
+    #description = My Little Weather Station
+    station_url = http://example.com/weather/
+    driver = weewx.register.StationRegistry
+
+3) restart weewx
+
+
+to configure the server:
+
+1) install prerequisites
+
+apt-get install libdbd-sqlite3-perl
+
+2) install the cgi script
+
+cp register.cgi /var/lib/cgi-bin
+
+3) set up database location
+
+mkdir /var/lib/weewx
+chown www-data /var/lib/weewx
+
+4) configure crontab to generate the html page
+
+crontab -u www-data crontab.reg

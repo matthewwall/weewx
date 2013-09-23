@@ -1,0 +1,148 @@
+#!/usr/bin/perl
+# $Id$
+# insert fields from database into template html file, resulting in a web page
+# with a map and list of stations.
+# Copyright 2013 Matthew Wall
+#
+# Run this script periodically to update the web page.
+
+use strict;
+use DBI;
+use POSIX;
+
+# location of the sqlite database
+my $db = '/var/lib/weewx/stations.sdb';
+
+# html template file
+my $tmpl = 'stations.html.in';
+
+# how long ago do we consider stale, in seconds
+my $stale = 2_592_000; # 30 days
+
+# where to put the results
+my $ofile = 'stations.html';
+
+# format for logging
+my $DATE_FORMAT = "%b %d %H:%M:%S";
+
+while($ARGV[0]) {
+    my $arg = shift;
+    if ($arg eq '--template') {
+        $tmpl = shift;
+    } elsif ($arg eq '--stale') {
+        $stale = shift;
+    } elsif ($arg eq '--db') {
+        $db = shift;
+    } elsif ($arg eq '--ofile') {
+        $ofile = shift;
+    }
+}
+
+
+
+# read the template file, cache in memory
+my $contents = q();
+if(open(IFILE, "<$tmpl")) {
+    while(<IFILE>) {
+        $contents .= $_;
+    }
+    close(IFILE);
+} else {
+    my $errmsg = "cannot read template file $tmpl: $!";
+    errorpage($errmsg);
+    logerr($errmsg);
+    exit 1;
+}
+
+my @records;
+my $errmsg = q();
+# be sure the database is there
+if (-f $db) {
+    # read the database, keep only records that are not stale
+    my $dbh = DBI->connect("dbi:SQLite:$db", q(), q(), { RaiseError => 0 });
+    if ($dbh) {
+	my $sth = $dbh->prepare('select station_url,description,latitude,longitude,station_type,last_seen from stations');
+	if ($sth) {
+	    $sth->execute();
+	    $sth->bind_columns(\my($url,$desc,$lat,$lon,$st,$ts));
+	    my $now = time;
+	    while($sth->fetch()) {
+		next if $now - $ts > $stale;
+		my %r;
+		$r{url} = $url;
+		$r{description} = $desc;
+		$r{latitude} = $lat;
+		$r{longitude} = $lon;
+		$r{station_type} = $st;
+		$r{last_seen} = $ts;
+		push @records, \%r;
+	    }
+            $sth->finish();
+            undef $sth;
+	} else {
+	    $errmsg = "cannot prepare select statement: $DBI::errstr";
+	    logerr($errmsg);
+	}
+	$dbh->disconnect();
+        undef $dbh;
+    } else {
+	$errmsg = "cannot connect to database: $DBI::errstr";
+	logerr($errmsg);
+    }
+} else {
+    $errmsg = "no database at $db";
+    logerr($errmsg);
+}
+
+# inject into the template and spit it out
+if(open(OFILE,">$ofile")) {
+    foreach my $line (split("\n", $contents)) {
+        if($line =~ /^var sites = /) {
+            if ($errmsg ne q()) {
+                print OFILE "/* error: $errmsg */\n";
+            }
+            print OFILE "var sites = [\n";
+            foreach my $rec (@records) {
+                print OFILE "  { description: '$rec->{description}',\n";
+                print OFILE "    url: '$rec->{url}',\n";
+                print OFILE "    latitude: $rec->{latitude},\n";
+                print OFILE "    longitude: $rec->{longitude},\n";
+                print OFILE "    station: '$rec->{station_type}' },\n";
+                print OFILE "\n";
+            }
+            print OFILE "];\n";
+        } else {
+            print OFILE "$line\n";
+        }
+    }
+    close(OFILE);
+}
+
+exit 0;
+
+
+sub errorpage {
+    my ($msg) = @_;
+    if(open(OFILE,">$ofile")) {
+        print OFILE "<html>\n";
+        print OFILE "<head>\n";
+        print OFILE "  <title>error</title>\n";
+        print OFILE "</head>\n";    
+        print OFILE "<body>\n";
+        print OFILE "<p>Creation of stations page failed.</p>\n";
+        print OFILE "<p>\n";
+        print OFILE "$msg\n";
+        print OFILE "</p>\n";
+        print OFILE "</body>\n";
+        print OFILE "</html>\n";
+        close(OFILE);
+    } else {
+        logerr("cannot write to output file $ofile");
+    }
+}
+
+sub logerr {
+    my ($msg) = @_;
+    my $tstr = strftime $DATE_FORMAT, gmtime time;
+    print STDERR "$tstr $msg\n";
+}
