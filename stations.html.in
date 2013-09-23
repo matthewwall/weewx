@@ -16,6 +16,7 @@
 }
 .footer {
   font-style: italic;
+  text-align: right;
 }
 .gm-style-iw {
   width: 250px;
