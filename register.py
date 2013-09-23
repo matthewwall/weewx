@@ -79,12 +79,18 @@ class StationRegistry(weewx.restful.REST):
     def __init__(self, site, **kwargs):
         self.server_url = kwargs.get('server_url', WEEWX_SERVER_URL)
         self.station_url = kwargs['station_url']
-        self.description = kwargs.get('description', None)
+
+        # these are defined by RESTful
         self.latitude = float(kwargs['latitude'])
         self.longitude = float(kwargs['longitude'])
         self.hardware = kwargs['hardware']
+
+        # these are optional
         self.interval = int(kwargs.get('interval', 604800))
         self.max_tries = int(kwargs.get('max_tries', 5))
+        self.description = kwargs.get('description', None)
+        if self.description is None:
+            self.description = kwargs.get('location', None)
 
         self.weewx_info = weewx.__version__
         self.python_info = sys.version
