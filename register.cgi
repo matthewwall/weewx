@@ -43,15 +43,15 @@
 use strict;
 use POSIX;
 
-my $regdir = '/home/content/t/o/m/tomkeffer/html/register';
+my $basedir = '/home/content/t/o/m/tomkeffer';
 
 # location of the sqlite database
-my $db = "$regdir/stations.sdb";
+my $db = "$basedir/weereg/stations.sdb";
 
 # location of the html generator and template
-my $htmlapp = "$regdir/mkstations.pl";
-my $htmltmpl = "$regdir/stations.html.in";
-my $htmlfile = "$regdir/stations.html";
+my $htmlapp = "$basedir/html/register/mkstations.pl";
+my $htmltmpl = "$basedir/html/register/stations.html.in";
+my $htmlfile = "$basedir/html/stations.html";
 
 # format of the date as returned in the html footers
 my $DATE_FORMAT = "%Y.%m.%d %H:%M:%S UTC";
