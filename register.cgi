@@ -50,8 +50,6 @@ my $db = "$basedir/weereg/stations.sdb";
 
 # location of the html generator and template
 my $htmlapp = "$basedir/html/register/mkstations.pl";
-my $htmltmpl = "$basedir/html/register/stations.html.in";
-my $htmlfile = "$basedir/html/stations.html";
 
 # format of the date as returned in the html footers
 my $DATE_FORMAT = "%Y.%m.%d %H:%M:%S UTC";
@@ -121,7 +119,7 @@ sub checkenv {
 
 # generate the html page from template
 sub genhtml {
-    my $cmd = "$htmlapp --template $htmltmpl --db $db --ofile $htmlfile";
+    my $cmd = "$htmlapp";
     my $output = q();
 
     if(! -f "$htmlapp") {

@@ -66,13 +66,13 @@ if (-f $db) {
     # read the database, keep only records that are not stale
     my $dbh = DBI->connect("dbi:SQLite:$db", q(), q(), { RaiseError => 0 });
     if ($dbh) {
-	my $sth = $dbh->prepare('select station_url,description,latitude,longitude,station_type,last_seen from stations');
+        my $now = time;
+        my $cutoff = $now - $stale;
+	my $sth = $dbh->prepare("select station_url,description,latitude,longitude,station_type,last_seen from stations where last_seen > $cutoff");
 	if ($sth) {
 	    $sth->execute();
 	    $sth->bind_columns(\my($url,$desc,$lat,$lon,$st,$ts));
-	    my $now = time;
 	    while($sth->fetch()) {
-		next if $now - $ts > $stale;
 		my %r;
 		$r{url} = $url;
 		$r{description} = $desc;
@@ -124,6 +124,10 @@ if(open(OFILE,">$ofile")) {
         }
     }
     close(OFILE);
+    my $cnt = scalar @records;
+    logout("processed $cnt stations");
+} else {
+    logerr("cannot write to output file $ofile: $!");
 }
 
 exit 0;
@@ -145,8 +149,14 @@ sub errorpage {
         print OFILE "</html>\n";
         close(OFILE);
     } else {
-        logerr("cannot write to output file $ofile");
+        logerr("cannot write to output file $ofile: $!");
     }
+}
+
+sub logout {
+    my ($msg) = @_;
+    my $tstr = strftime $DATE_FORMAT_LOG, gmtime time;
+    print STDOUT "$tstr $msg\n";
 }
 
 sub logerr {
