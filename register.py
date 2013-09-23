@@ -24,6 +24,7 @@
 
 # FIXME: the REST base class has stuff we do not need (e.g. archive)
 
+import httplib
 import platform
 import re
 import socket

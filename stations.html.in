@@ -14,6 +14,12 @@
   font-family: Helvetic, Arial, sans-serif;
   font-size: 8pt;
 }
+.footer {
+  font-style: italic;
+}
+.gm-style-iw {
+  width: 250px;
+}
 table {
   width: 100%;
 }
@@ -48,27 +54,25 @@ function initialize() {
   var tbl = document.createElement('table');
   var tbdy = document.createElement('tbody');
   for (var i=0; i<sites.length; i++) {
+    var title = 'untitled';
+    if(sites[i].description.length > 0) {
+      title = sites[i].description;
+    } else {
+      title = sites[i].url;
+    }
     var pos = new google.maps.LatLng(sites[i].latitude, sites[i].longitude);
     var mkr = new google.maps.Marker({
       position: pos,
       map: map,
-      title: sites[i].description,
+      title: title,
     });
     attachinfo(mkr, i);
     var tr = document.createElement('tr');
-    var html = '<a href="' + sites[i].url + '">';
-    if(sites[i].description.length > 0) {
-      html += sites[i].description;
-    } else {
-      html += sites[i].url;
-    }
-    html += '</a>';
     var td = document.createElement('td');
-    td.innerHTML = html;
+    td.innerHTML = '<a href="' + sites[i].url + '">' + title + '</a>';
     tr.appendChild(td);
-    html = sites[i].station;
     var td = document.createElement('td');
-    td.innerHTML = html;
+    td.innerHTML = sites[i].station;
     tr.appendChild(td);    
     tbdy.appendChild(tr);
   }
@@ -81,16 +85,16 @@ function attachinfo(marker, idx) {
     var str = '<p class="location">';
     str += '<a href="' + sites[idx].url + '">';
     if(sites[idx].description.length > 0) {
-      str += sites[idx].description + '</a>';
+      str += sites[idx].description;
     } else {
       str += sites[idx].url;
     }
-    str += '</p>';
+    str += '</a></p>';
     str += '<p class="location_details">';
     str += sites[idx].latitude + ', ' + sites[idx].longitude + '<br/>';
     str += sites[idx].station + '<br/>';
     str += '</p>';
-    infowindow.content = str;
+    infowindow.setContent(str);
     infowindow.open(map, marker);
   });
 }
@@ -162,6 +166,10 @@ function toggle(control, id) {
         <div id='site_listing' style='display:none'></div>
       </div>
 
+    </div>
+
+    <div class='footer'>
+      LAST_MODIFIED
     </div>
   
   <script type='text/javascript'>

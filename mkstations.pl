@@ -23,7 +23,10 @@ my $stale = 2_592_000; # 30 days
 my $ofile = 'stations.html';
 
 # format for logging
-my $DATE_FORMAT = "%b %d %H:%M:%S";
+my $DATE_FORMAT_LOG = "%b %d %H:%M:%S";
+
+# format for web page display
+my $DATE_FORMAT_HTML = "%H:%M:%S %d %b %Y UTC";
 
 while($ARGV[0]) {
     my $arg = shift;
@@ -111,6 +114,9 @@ if(open(OFILE,">$ofile")) {
                 print OFILE "\n";
             }
             print OFILE "];\n";
+        } elsif($line =~ /LAST_MODIFIED/) {
+            my $tstr = strftime $DATE_FORMAT_HTML, gmtime time;
+            print OFILE "last update $tstr\n";
         } else {
             print OFILE "$line\n";
         }
@@ -143,6 +149,6 @@ sub errorpage {
 
 sub logerr {
     my ($msg) = @_;
-    my $tstr = strftime $DATE_FORMAT, gmtime time;
+    my $tstr = strftime $DATE_FORMAT_LOG, gmtime time;
     print STDERR "$tstr $msg\n";
 }
