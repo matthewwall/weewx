@@ -1,2 +1,2 @@
 # crontab to generate stations file
-5,15,25,35,45,55 * * * * /opt/weereg/mkstations.pl --template /opt/weereg/stations.html.in --db /var/lib/weewx/stations.sdb --ofile /var/www/weereg/stations.html 2>> /var/lib/weewx/weereg.log
+5,15,25,35,45,55 * * * * /home/content/t/o/m/tomkeffer/html/register/mkstations.pl 2>> /home/content/t/o/m/tomkeffer/html/register/register.log

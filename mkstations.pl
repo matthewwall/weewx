@@ -10,17 +10,19 @@ use strict;
 use DBI;
 use POSIX;
 
+my $basedir = '/home/content/t/o/m/tomkeffer';
+
 # location of the sqlite database
-my $db = '/var/lib/weewx/stations.sdb';
+my $db = "$basedir/weereg/stations.sdb";
 
 # html template file
-my $tmpl = 'stations.html.in';
+my $tmpl = "$basedir/html/register/stations.html.in";
 
 # how long ago do we consider stale, in seconds
 my $stale = 2_592_000; # 30 days
 
 # where to put the results
-my $ofile = 'stations.html';
+my $ofile = "$basedir/html/stations.html";
 
 # format for logging
 my $DATE_FORMAT_LOG = "%b %d %H:%M:%S";
