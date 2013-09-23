@@ -83,17 +83,19 @@ class StationRegistry(weewx.restful.REST):
             self.description = kwargs.get('location', None)
         self.latitude = float(kwargs['latitude'])
         self.longitude = float(kwargs['longitude'])
-        self.hardware = kwargs['station_type']
+        self.hardware = kwargs['hardware']
         self.interval = int(kwargs.get('interval', 604800))
         self.max_tries = int(kwargs.get('max_tries', 5))
 
-        self.site = 'StationRegistry'
-        self.station = self.server_url
         self.weewx_info = weewx.__version__
         self.python_info = sys.version
         self.platform_info = platform.platform()
-
         self._last_ts = None
+
+        # these two must be defined to keep RESTful happy
+        self.site = 'StationRegistry'
+        self.station = self.station_url
+
         # adapted from django URLValidator
         self._urlregex = re.compile(
             r'^(?:http)s?://' # http:// or https://
