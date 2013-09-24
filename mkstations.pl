@@ -59,6 +59,8 @@ if(open(IFILE, "<$tmpl")) {
     exit 1;
 }
 
+# FIXME: the 'group by' in the query below does not do what we need.  we want
+# the latest record for each server_url, not whatever the group by might give.
 my @records;
 my $errmsg = q();
 # be sure the database is there
@@ -68,7 +70,7 @@ if (-f $db) {
     if ($dbh) {
         my $now = time;
         my $cutoff = $now - $stale;
-	my $sth = $dbh->prepare("select station_url,description,latitude,longitude,station_type,last_seen from stations where last_seen > $cutoff");
+	my $sth = $dbh->prepare("select station_url,description,latitude,longitude,station_type,last_seen from stations where last_seen > $cutoff group by station_url");
 	if ($sth) {
 	    $sth->execute();
 	    $sth->bind_columns(\my($url,$desc,$lat,$lon,$st,$ts));

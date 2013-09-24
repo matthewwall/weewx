@@ -241,13 +241,22 @@ sub registerstation {
 
     my $rc = 0;
     if(! $dbexists) {
-        $rc = $dbh->do('create table stations(station_url varchar2(255) primary key, description varchar2(255), latitude number, longitude number, station_type varchar2(64), weewx_info varchar2(64), python_info varchar2(64), platform_info varchar2(64), last_addr varchar2(16), last_seen int)');
+        $rc = $dbh->do('create table stations(station_url varchar2(255) not NULL, description varchar2(255), latitude number, longitude number, station_type varchar2(64), weewx_info varchar2(64), python_info varchar2(64), platform_info varchar2(64), last_addr varchar2(16), last_seen int)');
         if(!$rc) {
             my $msg = 'create table failed: ' . $DBI::errstr;
             $dbh->disconnect();
             return ('FAIL', $msg, \%rec);
         }
+        $rc = $dbh->do('create unique index index_stations on stations(station_url asc, latitude asc, longitude asc, station_type asc, weewx_info asc, python_info asc, platform_info asc, last_addr asc)');
+        if(!$rc) {
+            my $msg = 'create index failed: ' . $DBI::errstr;
+            $dbh->disconnect();
+            return ('FAIL', $msg, \%rec);
+        }
     }
+
+    # if data are different from latest record, save a new record.  otherwise
+    # just update the timestamp of the latest record.
 
     my $qs = "insert or replace into stations (station_url,description,latitude,longitude,station_type,weewx_info,python_info,platform_info,last_addr,last_seen) values ('$rec{station_url}','$rec{description}','$rec{latitude}','$rec{longitude}','$rec{station_type}','$rec{weewx_info}','$rec{python_info}','$rec{platform_info}','$addr',$ts)";
     $rc = $dbh->do($qs);
