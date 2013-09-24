@@ -61,8 +61,9 @@ if(open(IFILE, "<$tmpl")) {
     exit 1;
 }
 
-# FIXME: the 'group by' in the query below does not do what we need.  we want
-# the latest record for each server_url, not whatever the group by might give.
+# query for the latest record for each station (identified by url)
+# FIXME: do the query using sqlite3, asc gives the correct result, desc gives
+# incorrect.  do the query in perl, both asc and desc give incorrect result.
 my @records;
 my $errmsg = q();
 # be sure the database is there
@@ -72,7 +73,7 @@ if (-f $db) {
     if ($dbh) {
         my $now = time;
         my $cutoff = $now - $stale;
-	my $sth = $dbh->prepare("select station_url,description,latitude,longitude,station_type,last_seen from stations where last_seen > $cutoff group by station_url");
+	my $sth = $dbh->prepare("select station_url,description,latitude,longitude,station_type,last_seen from (select * from stations where last_seen > $cutoff order by last_seen asc) group by station_url");
 	if ($sth) {
 	    $sth->execute();
 	    $sth->bind_columns(\my($url,$desc,$lat,$lon,$st,$ts));
@@ -122,7 +123,11 @@ if(open(OFILE,">$ofile")) {
             print OFILE "];\n";
         } elsif($line =~ /LAST_MODIFIED/) {
             my $tstr = strftime $DATE_FORMAT_HTML, gmtime time;
-            print OFILE "last update $tstr by mkstations $version<br/>\n";
+            my $n = $stale / 86_400;
+            print OFILE "stations removed after $n days without contact<br/>\n";
+            print OFILE "station listing is updated every 10 minutes<br/>\n";
+            print OFILE "last update $tstr<br/>\n";
+            print OFILE "<!-- $version -->\n";
         } else {
             print OFILE "$line\n";
         }
