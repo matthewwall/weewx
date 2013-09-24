@@ -10,6 +10,8 @@ use strict;
 use DBI;
 use POSIX;
 
+my $version = '$Id$';
+
 my $basedir = '/home/content/t/o/m/tomkeffer';
 
 # location of the sqlite database
@@ -18,11 +20,11 @@ my $db = "$basedir/weereg/stations.sdb";
 # html template file
 my $tmpl = "$basedir/html/register/stations.html.in";
 
-# how long ago do we consider stale, in seconds
-my $stale = 2_592_000; # 30 days
-
 # where to put the results
 my $ofile = "$basedir/html/stations.html";
+
+# how long ago do we consider stale, in seconds
+my $stale = 2_592_000; # 30 days
 
 # format for logging
 my $DATE_FORMAT_LOG = "%b %d %H:%M:%S";
@@ -120,7 +122,7 @@ if(open(OFILE,">$ofile")) {
             print OFILE "];\n";
         } elsif($line =~ /LAST_MODIFIED/) {
             my $tstr = strftime $DATE_FORMAT_HTML, gmtime time;
-            print OFILE "last update $tstr\n";
+            print OFILE "last update $tstr by mkstations $version<br/>\n";
         } else {
             print OFILE "$line\n";
         }

@@ -21,19 +21,7 @@
 # station has been seen, then a field is updated with the timestamp of the
 # request.
 #
-# Data are saved to a sqlite database.  The database contains a single table
-# with the following structure:
-#
-# create table stations (station_url varchar2(255) primary key,
-#                        description varchar2(255),
-#                        latitude number,
-#                        longitude number,
-#                        station_type varchar2(64),
-#                        weewx_info varchar2(64),
-#                        python_info varchar2(64),
-#                        platform_info varchar2(64),
-#                        last_addr varchar2(16),
-#                        last_seen int)
+# Data are saved to a database.  The database contains a single table.
 #
 # If the database does not exist, one will be created with an empty table.
 #
@@ -42,6 +30,8 @@
 
 use strict;
 use POSIX;
+
+my $version = '$Id$';
 
 my $basedir = '/home/content/t/o/m/tomkeffer';
 
@@ -319,7 +309,8 @@ sub writefooter {
 
     if($mdate) {
         print STDOUT "<small><i>\n";
-        print STDOUT "$mdate\n";
+        print STDOUT "$mdate<br/>\n";
+        print STDOUT "$version<br/>\n";
         print STDOUT "</i></small>\n";
     }
 
