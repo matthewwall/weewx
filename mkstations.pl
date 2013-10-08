@@ -117,15 +117,16 @@ if(open(OFILE,">$ofile")) {
                 print OFILE "    url: '$rec->{url}',\n";
                 print OFILE "    latitude: $rec->{latitude},\n";
                 print OFILE "    longitude: $rec->{longitude},\n";
-                print OFILE "    station: '$rec->{station_type}' },\n";
+                print OFILE "    station: '$rec->{station_type}',\n";
+                print OFILE "    last_seen: '$rec->{last_seen}' },\n";
                 print OFILE "\n";
             }
             print OFILE "];\n";
         } elsif($line =~ /LAST_MODIFIED/) {
             my $tstr = strftime $DATE_FORMAT_HTML, gmtime time;
             my $n = $stale / 86_400;
-            print OFILE "stations removed after $n days without contact<br/>\n";
-            print OFILE "station listing is updated every 10 minutes<br/>\n";
+            print OFILE "stations will be removed after $n days without contact<br/>\n";
+            print OFILE "this station listing is updated every 10 minutes<br/>\n";
             print OFILE "last update $tstr<br/>\n";
             print OFILE "<!-- $version -->\n";
         } else {

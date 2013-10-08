@@ -76,6 +76,10 @@ function initialize() {
     var td = document.createElement('td');
     td.innerHTML = sites[i].station;
     tr.appendChild(td);    
+    var td = document.createElement('td');
+    var date = new Date(sites[i].last_seen * 1000);
+    td.innerHTML = date.toUTCString();
+    tr.appendChild(td);
     tbdy.appendChild(tr);
   }
   tbl.appendChild(tbdy);
