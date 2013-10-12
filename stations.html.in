@@ -163,14 +163,15 @@ function toggle(control, id) {
         <div id='instruction_details' style='display:none'>
           <p>
 	    To add your station to this list, put the following in weewx.conf,
+            then restart weewx.
 	    <pre>
+[Station]
+    station_url = URL_TO_YOUR_STATION
 [StdRESTful]
-  [[StationRegistry]]
-    station_url = http://example.com/weather/
-    driver = weewx.restful.StationRegistry
+    [[StationRegistry]]
+        register_this_station = True
+        driver = weewx.restful.StationRegistry
 	    </pre>
-            replace <pre/>http://example.com/weather/</pre> with the URL
-            to your station, then restart weewx.
           </p>
         </div>
       </div>
