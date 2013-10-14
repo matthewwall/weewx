@@ -193,15 +193,15 @@ function toggle(control, id) {
         <div onclick="toggle(this,'instruction_details')">&#x25b6; <strong>How to Add Your Station</strong></div>
         <div id='instruction_details' style='display:none'>
           <p>
-	    To add your station to this list, put the following in weewx.conf,
-            then restart weewx.
+	    To put your station on this list, add <pre>register_this_station = True</pre> to weewx.conf, then restart weewx.
+          </p>
+          <p>
+            Your weewx.conf should look something like this:
 	    <pre>
-[Station]
-    station_url = URL_TO_YOUR_STATION
 [StdRESTful]
+    ...
     [[StationRegistry]]
         register_this_station = True
-        driver = weewx.restful.StationRegistry
 	    </pre>
           </p>
         </div>
