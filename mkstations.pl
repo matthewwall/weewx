@@ -112,7 +112,7 @@ if(open(OFILE,">$ofile")) {
                 print OFILE "/* error: $errmsg */\n";
             }
             print OFILE "var sites = [\n";
-            foreach my $rec (@records) {
+            foreach my $rec (sort { $a->{description} cmp $b->{description} } @records) {
                 print OFILE "  { description: '$rec->{description}',\n";
                 print OFILE "    url: '$rec->{url}',\n";
                 print OFILE "    latitude: $rec->{latitude},\n";
