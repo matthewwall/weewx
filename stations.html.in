@@ -51,6 +51,9 @@
   text-align: right;
   font-size: 80%;
 }
+#summary {
+  padding-top: 20px;
+}
 .gm-style-iw {
   width: 250px;
 }
@@ -97,6 +100,8 @@ function initialize() {
   var tbl = document.createElement('table');
   var tbdy = document.createElement('tbody');
   rowclass = 'oddrow';
+  var counts = {};
+  counts['total'] = 0;
   for (var i=0; i<sites.length; i++) {
     var title = 'untitled';
     if(sites[i].description.length > 0) {
@@ -127,8 +132,31 @@ function initialize() {
     } else {
       rowclass = 'oddrow'
     }
+    counts['total'] = counts['total'] + 1;
+    var n = 0;
+    if(sites[i].station in counts) {
+      n = counts[sites[i].station];
+    }
+    counts[sites[i].station] = n + 1;
   }
   tbl.appendChild(tbdy);
+  s.appendChild(tbl);
+
+  var tbdy = document.createElement('tbody');
+  for(var key in counts) {
+    var tr = document.createElement('tr');
+    var td = document.createElement('td');
+    td.innerHTML = key;
+    tr.appendChild(td);
+    var td = document.createElement('td');
+    td.className = 'alignright';
+    td.innerHTML = counts[key];
+    tr.appendChild(td);
+    tbdy.appendChild(tr);
+  }
+  var tbl = document.createElement('table');
+  tbl.appendChild(tbdy);
+  var s = document.getElementById('station_summary_details');
   s.appendChild(tbl);
 }
 
@@ -189,9 +217,18 @@ function toggle(control, id) {
     </div>
 
     <div id='content'>
+
+      <div id='sites'>
+        <div onclick="toggle(this,'site_listing')">&#x25b6; <strong>Weather Stations Running weewx</strong></div>
+        <div id='site_listing' style='display:none'></div>
+      </div>
+
+      <div id='summary'>
+        <table>
+          <tr valign='top'><td>
       <div id='instructions'>
-        <div onclick="toggle(this,'instruction_details')">&#x25b6; <strong>How to Add Your Station</strong></div>
-        <div id='instruction_details' style='display:none'>
+        <strong>How to Add Your Station</strong>
+        <div id='instruction_details'>
           <p>
 	    To put your station on this list, add <pre>register_this_station = True</pre> to weewx.conf, then restart weewx.
           </p>
@@ -206,10 +243,16 @@ function toggle(control, id) {
           </p>
         </div>
       </div>
-
-      <div id='sites'>
-        <div onclick="toggle(this,'site_listing')">&#x25b6; <strong>Weather Stations Running weewx</strong></div>
-        <div id='site_listing' style='display:none'></div>
+            </td>
+            <td>
+      <div id='station_summary'>
+        <strong>Station Summary</strong>
+        <div id='station_summary_details'>
+        </div>
+      </div>
+            </td>
+          </tr>
+        </table>
       </div>
 
     </div>
