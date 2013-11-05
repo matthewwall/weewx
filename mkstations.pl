@@ -1,8 +1,9 @@
 #!/usr/bin/perl
 # $Id$
+# Copyright 2013 Matthew Wall
+#
 # insert fields from database into template html file, resulting in a web page
 # with a map and list of stations.
-# Copyright 2013 Matthew Wall
 #
 # Run this script periodically to update the web page.
 

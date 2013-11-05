@@ -1,10 +1,11 @@
 #!/usr/bin/perl
 # $Id$
-# register/update a weewx station via GET or POST request
 # Copyright 2013 Matthew Wall
 #
+# register/update a weewx station via GET or POST request
+#
 # This CGI script takes requests from weewx stations and registers them into
-# a database.  It expects the following parameters:
+# a database.  It recognizes the following parameters:
 #
 # station_url
 # description
@@ -38,8 +39,14 @@ my $basedir = '/home/content/t/o/m/tomkeffer';
 # location of the sqlite database
 my $db = "$basedir/weereg/stations.sdb";
 
-# location of the html generator and template
-my $htmlapp = "$basedir/html/register/mkstations.pl";
+# location of the html generator
+my $genhtmlapp = "$basedir/html/register/mkstations.pl";
+
+# location of the log archiver
+my $arclogapp = "$basedir/html/register/archivelog.pl";
+
+# location of the count app
+my $savecntapp = "$basedir/html/register/savecounts.pl";
 
 # format of the date as returned in the html footers
 my $DATE_FORMAT = "%Y.%m.%d %H:%M:%S UTC";
@@ -50,7 +57,11 @@ if($RMETHOD eq 'GET' || $RMETHOD eq 'POST') {
     if($rqpairs{action} eq 'chkenv') {
         &checkenv();
     } elsif($rqpairs{action} eq 'genhtml') {
-        &genhtml();
+        &runcmd('generate html', $genhtmlapp);
+    } elsif($rqpairs{action} eq 'arclog') {
+        &runcmd('archive log', $arclogapp);
+    } elsif($rqpairs{action} eq 'getcounts') {
+        &runcmd('save counts', $savecntapp);
     } else {
         &handleregistration(%rqpairs);
     }
@@ -107,20 +118,18 @@ sub checkenv {
     &writefooter($tstr);
 }
 
-# generate the html page from template
-sub genhtml {
-    my $cmd = "$htmlapp";
+sub runcmd {
+    my($title, $cmd) = @_;
     my $output = q();
 
-    if(! -f "$htmlapp") {
-        $output = "$htmlapp does not exist";
-    } elsif (! -x "$htmlapp") {
-        $output = "$htmlapp is not executable";
+    if(! -f "$cmd") {
+        $output = "$cmd does not exist";
+    } elsif (! -x "$cmd") {
+        $output = "$cmd is not executable";
     } else {
         $output = `$cmd 2>&1`;
     }
 
-    my $title = 'genhtml';
     my $tstr = &getformatteddate;
     &writecontenttype;
     &writeheader($title);
@@ -177,10 +186,9 @@ sub registerstation {
     if($rec{station_url} =~ /'/) {
         push @msgs, 'station_url cannot contain single quotes';
     }
-    if($rec{description} =~ /'/) {
-        push @msgs, 'description cannot contain single quotes';
-    }
-    if($rec{station_type} =~ /'/) {
+    if($rec{station_type} eq q() || $rec{station_type} !~ /\S/) {
+        push @msgs, 'station_type must be specified';
+    } elsif($rec{station_type} =~ /'/) {
         push @msgs, 'station_type cannot contain single quotes';
     }
     if($rec{latitude} eq q()) {
@@ -193,7 +201,7 @@ sub registerstation {
     } elsif($rec{longitude} =~ /[^0-9.-]+/) {
         push @msgs, 'longitude must be decimal notation, for example 7.15 or -78.535';
     }
-    for my $k ('weewx_info','python_info','platform_info') {
+    for my $k ('description','weewx_info','python_info','platform_info') {
         if($rec{$k} =~ /'/) {
             $rec{$k} =~ s/'//g;
         }
@@ -246,7 +254,7 @@ sub registerstation {
     }
 
     # if data are different from latest record, save a new record.  otherwise
-    # just update the timestamp of the latest record.
+    # just update the timestamp of the matching record.
 
     my $qs = "insert or replace into stations (station_url,description,latitude,longitude,station_type,weewx_info,python_info,platform_info,last_addr,last_seen) values ('$rec{station_url}','$rec{description}','$rec{latitude}','$rec{longitude}','$rec{station_type}','$rec{weewx_info}','$rec{python_info}','$rec{platform_info}','$addr',$ts)";
     $rc = $dbh->do($qs);
