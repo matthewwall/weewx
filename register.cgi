@@ -151,9 +151,9 @@ sub handleregistration {
 
     my ($status,$msg,$rec) = registerstation(%rqpairs);
     if($status eq 'OK') {
-        &writereply('Registration Complete', 'OK', $msg, $rec);
+        &writereply('Registration Complete', 'OK', $msg, $rec, $rqpairs{debug});
     } else {
-        &writereply('Registration Failed', 'FAIL', $msg, $rec);
+        &writereply('Registration Failed', 'FAIL', $msg, $rec, $rqpairs{debug});
     }
 }
 
@@ -270,7 +270,7 @@ sub registerstation {
 }
 
 sub writereply {
-    my($title, $status, $msg, $rec) = @_;
+    my($title, $status, $msg, $rec, $debug) = @_;
 
     my $tstr = &getformatteddate;
     &writecontenttype;
@@ -279,18 +279,20 @@ sub writereply {
     print STDOUT "<pre>\n";
     print STDOUT "$status: $msg\n";
     print STDOUT "</pre>\n";
-    print STDOUT "<pre>\n";
-    print STDOUT "station_url: $rec->{station_url}\n";
-    print STDOUT "description: $rec->{description}\n";
-    print STDOUT "latitude: $rec->{latitude}\n";
-    print STDOUT "longitude: $rec->{longitude}\n";
-    print STDOUT "station_type: $rec->{station_type}\n";
-    print STDOUT "weewx_info: $rec->{weewx_info}\n";
-    print STDOUT "python_info: $rec->{python_info}\n";
-    print STDOUT "platform_info: $rec->{platform_info}\n";
-    print STDOUT "last_addr: $rec->{last_addr}\n";
-    print STDOUT "last_seen: $rec->{last_seen}\n";
-    print STDOUT "</pre>\n";
+    if($rec && $debug) {
+        print STDOUT "<pre>\n";
+        print STDOUT "station_url: $rec->{station_url}\n";
+        print STDOUT "description: $rec->{description}\n";
+        print STDOUT "latitude: $rec->{latitude}\n";
+        print STDOUT "longitude: $rec->{longitude}\n";
+        print STDOUT "station_type: $rec->{station_type}\n";
+        print STDOUT "weewx_info: $rec->{weewx_info}\n";
+        print STDOUT "python_info: $rec->{python_info}\n";
+        print STDOUT "platform_info: $rec->{platform_info}\n";
+        print STDOUT "last_addr: $rec->{last_addr}\n";
+        print STDOUT "last_seen: $rec->{last_seen}\n";
+        print STDOUT "</pre>\n";
+    }
     &writefooter($tstr);
 }
 
