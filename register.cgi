@@ -195,11 +195,15 @@ sub registerstation {
         push @msgs, 'latitude must be specified';
     } elsif($rec{latitude} =~ /[^0-9.-]+/) {
         push @msgs, 'latitude must be decimal notation, for example 54.234 or -23.5';
+    } elsif($rec{latitude} < -90 || $rec{latitude} > 90) {
+        push @msgs, 'latitude must be between -90 and 90, inclusive';
     }
     if($rec{longitude} eq q()) {
         push @msgs, 'longitude must be specified';
     } elsif($rec{longitude} =~ /[^0-9.-]+/) {
         push @msgs, 'longitude must be decimal notation, for example 7.15 or -78.535';
+    } elsif($rec{longitude} < -180 || $rec{longitude} > 180) {
+        push @msgs, 'longitude must be between -180 and 180, inclusive';
     }
     for my $k ('description','weewx_info','python_info','platform_info') {
         if($rec{$k} =~ /'/) {
@@ -256,10 +260,15 @@ sub registerstation {
     # if data are different from latest record, save a new record.  otherwise
     # just update the timestamp of the matching record.
 
-    my $qs = "insert or replace into stations (station_url,description,latitude,longitude,station_type,weewx_info,python_info,platform_info,last_addr,last_seen) values ('$rec{station_url}','$rec{description}','$rec{latitude}','$rec{longitude}','$rec{station_type}','$rec{weewx_info}','$rec{python_info}','$rec{platform_info}','$addr',$ts)";
-    $rc = $dbh->do($qs);
+    my $sth = $dbh->prepare(q{insert or replace into stations (station_url,description,latitude,longitude,station_type,weewx_info,python_info,platform_info,last_addr,last_seen) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)});
+    if(!$sth) {
+        my $msg = 'prepare failed: ' . $DBI::errstr;
+        $dbh->disconnect();
+        return ('FAIL', $msg, \%rec);
+    }
+    $rc = $sth->execute($rec{station_url},$rec{description},$rec{latitude},$rec{longitude},$rec{station_type},$rec{weewx_info},$rec{python_info},$rec{platform_info},$addr,$ts);
     if(!$rc) {
-        my $msg = 'insert/replace failed: ' . $DBI::errstr;
+        my $msg = 'execute failed: ' . $DBI::errstr;
         $dbh->disconnect();
         return ('FAIL', $msg, \%rec);
     }
@@ -291,6 +300,10 @@ sub writereply {
         print STDOUT "platform_info: $rec->{platform_info}\n";
         print STDOUT "last_addr: $rec->{last_addr}\n";
         print STDOUT "last_seen: $rec->{last_seen}\n";
+        print STDOUT "\n";
+        print STDOUT "HTTP_REQUEST_METHOD: $ENV{HTTP_REQUEST_METHOD}\n";
+        print STDOUT "HTTP_REQUEST_URI: $ENV{HTTP_REQUEST_URI}\n";
+        print STDOUT "HTTP_USER_AGENT: $ENV{HTTP_USER_AGENT}\n";
         print STDOUT "</pre>\n";
     }
     &writefooter($tstr);
