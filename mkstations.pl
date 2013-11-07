@@ -119,7 +119,7 @@ if(open(OFILE,">$ofile")) {
                 print OFILE "    latitude: $rec->{latitude},\n";
                 print OFILE "    longitude: $rec->{longitude},\n";
                 print OFILE "    station: '$rec->{station_type}',\n";
-                print OFILE "    last_seen: '$rec->{last_seen}' },\n";
+                print OFILE "    last_seen: $rec->{last_seen} },\n";
                 print OFILE "\n";
             }
             print OFILE "];\n";
