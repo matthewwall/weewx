@@ -63,8 +63,6 @@ if(open(IFILE, "<$tmpl")) {
 }
 
 # query for the latest record for each station (identified by url)
-# FIXME: do the query using sqlite3, asc gives the correct result, desc gives
-# incorrect.  do the query in perl, both asc and desc give incorrect result.
 my @records;
 my $errmsg = q();
 # be sure the database is there
@@ -74,8 +72,15 @@ if (-f $db) {
     if ($dbh) {
         my $now = time;
         my $cutoff = $now - $stale;
-	my $sth = $dbh->prepare("select station_url,description,latitude,longitude,station_type,last_seen from (select * from stations where last_seen > $cutoff order by last_seen asc) group by station_url");
+# FIXME: these queries do the right thing in sqlite3, but not in perl DBI
+#	my $qry = "select station_url,description,latitude,longitude,station_type,last_seen from (select * from stations where last_seen > $cutoff order by last_seen asc) group by station_url";
+#	my $qry = "select station_url,description,latitude,longitude,station_type,last_seen from (select * from stations order by last_seen asc) t1 where t1.last_seen > $cutoff group by t1.station_url";
+        # since doing it in the db query does not work, query for everything
+        # then do the filtering in perl.  sigh.
+        my $qry = "select station_url,description,latitude,longitude,station_type,last_seen from stations where last_seen > $cutoff order by last_seen";
+        my $sth = $dbh->prepare($qry);
 	if ($sth) {
+            my %unique;
 	    $sth->execute();
 	    $sth->bind_columns(\my($url,$desc,$lat,$lon,$st,$ts));
 	    while($sth->fetch()) {
@@ -86,10 +91,15 @@ if (-f $db) {
 		$r{longitude} = $lon;
 		$r{station_type} = $st;
 		$r{last_seen} = $ts;
-		push @records, \%r;
-	    }
+                if(!defined($unique{$url}) || $ts>$unique{$url}->{last_seen}) {
+                    $unique{$url} = \%r;
+                }
+            }
             $sth->finish();
             undef $sth;
+            foreach my $k (keys %unique) {
+		push @records, $unique{$k};
+            }
 	} else {
 	    $errmsg = "cannot prepare select statement: $DBI::errstr";
 	    logerr($errmsg);
