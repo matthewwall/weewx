@@ -5,16 +5,7 @@
 # register/update a weewx station via GET or POST request
 #
 # This CGI script takes requests from weewx stations and registers them into
-# a database.  It recognizes the following parameters:
-#
-# station_url
-# description
-# latitude
-# longitude
-# station_type
-# weewx_info
-# python_info
-# platform_info
+# a database.
 #
 # The station_url is used to uniquely identify a station.
 #
@@ -50,6 +41,9 @@ my $savecntapp = "$basedir/html/register/savecounts.pl";
 
 # format of the date as returned in the html footers
 my $DATE_FORMAT = "%Y.%m.%d %H:%M:%S UTC";
+
+# parameters that we recognize
+my @params = qw(station_url description latitude longitude station_type station_model weewx_info python_info platform_info);
 
 my $RMETHOD = $ENV{'REQUEST_METHOD'};
 if($RMETHOD eq 'GET' || $RMETHOD eq 'POST') {
@@ -163,18 +157,12 @@ sub registerstation {
     my(%rqpairs) = @_;
 
     my %rec;
-    $rec{station_url} = $rqpairs{station_url};
-    $rec{description} = $rqpairs{description};
-    $rec{latitude} = $rqpairs{latitude};
-    $rec{longitude} = $rqpairs{longitude};
-    $rec{station_type} = $rqpairs{station_type};
-    $rec{weewx_info} = $rqpairs{weewx_info};
-    $rec{python_info} = $rqpairs{python_info};
-    $rec{platform_info} = $rqpairs{platform_info};
-    my $addr = $ENV{'REMOTE_ADDR'};
-    $rec{last_addr} = $addr;
-    my $ts = time;
-    $rec{last_seen} = $ts;
+    foreach my $param (@params) {
+        $rec{$param} = $rqpairs{$param};
+    }
+    $rec{last_seen} = time;
+    $rec{last_addr} = $ENV{'REMOTE_ADDR'};
+    $rec{user_agent} = $ENV{HTTP_USER_AGENT};
 
     my @msgs;
     if($rec{station_url} =~ /example.com/) {
@@ -211,7 +199,7 @@ sub registerstation {
     } elsif($rec{longitude} < -180 || $rec{longitude} > 180) {
         push @msgs, 'longitude must be between -180 and 180, inclusive';
     }
-    for my $k ('description','weewx_info','python_info','platform_info') {
+    for my $k ('description','station_model','weewx_info','python_info','platform_info') {
         if($rec{$k} =~ /'/) {
             $rec{$k} =~ s/'//g;
         }
@@ -249,13 +237,13 @@ sub registerstation {
 
     my $rc = 0;
     if(! $dbexists) {
-        $rc = $dbh->do('create table stations(station_url varchar2(255) not NULL, description varchar2(255), latitude number, longitude number, station_type varchar2(64), weewx_info varchar2(64), python_info varchar2(64), platform_info varchar2(64), last_addr varchar2(16), last_seen int)');
+        $rc = $dbh->do('create table stations(station_url varchar2(255) not NULL, description varchar2(255), latitude number, longitude number, station_type varchar2(64), station_model varchar2(64), weewx_info varchar2(64), python_info varchar2(64), platform_info varchar2(64), last_addr varchar2(16), last_seen int)');
         if(!$rc) {
             my $msg = 'create table failed: ' . $DBI::errstr;
             $dbh->disconnect();
             return ('FAIL', $msg, \%rec);
         }
-        $rc = $dbh->do('create unique index index_stations on stations(station_url asc, latitude asc, longitude asc, station_type asc, weewx_info asc, python_info asc, platform_info asc, last_addr asc)');
+        $rc = $dbh->do('create unique index index_stations on stations(station_url asc, latitude asc, longitude asc, station_type asc, station_model asc, weewx_info asc, python_info asc, platform_info asc, last_addr asc)');
         if(!$rc) {
             my $msg = 'create index failed: ' . $DBI::errstr;
             $dbh->disconnect();
@@ -266,13 +254,13 @@ sub registerstation {
     # if data are different from latest record, save a new record.  otherwise
     # just update the timestamp of the matching record.
 
-    my $sth = $dbh->prepare(q{insert or replace into stations (station_url,description,latitude,longitude,station_type,weewx_info,python_info,platform_info,last_addr,last_seen) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)});
+    my $sth = $dbh->prepare(q{insert or replace into stations (station_url,description,latitude,longitude,station_type,station_model,weewx_info,python_info,platform_info,last_addr,last_seen) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)});
     if(!$sth) {
         my $msg = 'prepare failed: ' . $DBI::errstr;
         $dbh->disconnect();
         return ('FAIL', $msg, \%rec);
     }
-    $rc = $sth->execute($rec{station_url},$rec{description},$rec{latitude},$rec{longitude},$rec{station_type},$rec{weewx_info},$rec{python_info},$rec{platform_info},$addr,$ts);
+    $rc = $sth->execute($rec{station_url},$rec{description},$rec{latitude},$rec{longitude},$rec{station_type},$rec{station_model},$rec{weewx_info},$rec{python_info},$rec{platform_info},$rec{last_addr},$rec{last_seen});
     if(!$rc) {
         my $msg = 'execute failed: ' . $DBI::errstr;
         $dbh->disconnect();
@@ -296,20 +284,15 @@ sub writereply {
     print STDOUT "</pre>\n";
     if($rec && $debug) {
         print STDOUT "<pre>\n";
-        print STDOUT "station_url: $rec->{station_url}\n";
-        print STDOUT "description: $rec->{description}\n";
-        print STDOUT "latitude: $rec->{latitude}\n";
-        print STDOUT "longitude: $rec->{longitude}\n";
-        print STDOUT "station_type: $rec->{station_type}\n";
-        print STDOUT "weewx_info: $rec->{weewx_info}\n";
-        print STDOUT "python_info: $rec->{python_info}\n";
-        print STDOUT "platform_info: $rec->{platform_info}\n";
+        foreach my $param (@params) {
+            print STDOUT "$param: $rec->{$param}\n";
+        }
         print STDOUT "last_addr: $rec->{last_addr}\n";
         print STDOUT "last_seen: $rec->{last_seen}\n";
+        print STDOUT "user_agent: $rec->{user_agent}\n";
         print STDOUT "\n";
         print STDOUT "HTTP_REQUEST_METHOD: $ENV{HTTP_REQUEST_METHOD}\n";
         print STDOUT "HTTP_REQUEST_URI: $ENV{HTTP_REQUEST_URI}\n";
-        print STDOUT "HTTP_USER_AGENT: $ENV{HTTP_USER_AGENT}\n";
         print STDOUT "</pre>\n";
     }
     &writefooter($tstr);
