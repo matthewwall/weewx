@@ -180,6 +180,12 @@ sub registerstation {
     if($rec{station_url} =~ /example.com/) {
         push @msgs, 'example.com is not a real URL';
     }
+    if($rec{station_url} =~ /weewx.com/) {
+        push @msgs, 'weewx.com does not host any weather stations';
+    }
+    if($rec{station_url} =~ /register.cgi/) {
+        push @msgs, 'station_url should be the URL to your weather station';
+    }
     if($rec{station_url} !~ /^https?:\/\/\S+\.\S+/) {
         push @msgs, 'station_url is not a proper URL';
     }
