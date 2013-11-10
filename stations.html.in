@@ -229,8 +229,8 @@ function toggle(control, id) {
       <p>Open source software for your weather station</p>
     </div>
 
-  <div id="navigation">
-  </div>
+    <div id="navigation">
+    </div>
 
     <div id='map_container'>
       <div id='map_canvas' style='width:100%; height:500px'></div>
@@ -241,38 +241,37 @@ function toggle(control, id) {
     </div>
 
     <div id='content'>
-
       <div id='summary'>
-      <div id='instructions'>
-        <strong>How to Add Your Station</strong>
-        <div id='instruction_details'>
-          <p>
-	    Enable <span class='code'>register_this_station</span> in
-            weewx.conf, then restart weewx. Your weewx.conf should look
-            something like this:
+        <div id='instructions'>
+          <strong>How to Add Your Station</strong>
+          <div id='instruction_details'>
+            <p>
+	      Enable <span class='code'>register_this_station</span> in
+              weewx.conf, then restart weewx. Your weewx.conf should look
+              something like this:
+            </p>
 	    <pre>
 [StdRESTful]
     ...
     [[StationRegistry]]
         register_this_station = True
 	    </pre>
-          </p>
+          </div>
         </div>
-      </div>
-      <div id='station_summary'>
-        <strong>Station Summary</strong>
-        <div id='station_summary_details'>
+        <div id='station_summary'>
+          <strong>Station Summary</strong>
+          <div id='station_summary_details'>
+          </div>
         </div>
-      </div>
       </div>
 
       <div id='sites'>
         <div onclick="toggle(this,'site_listing')">&#x25b6; <strong>Station List</strong></div>
         <div id='site_listing' style='display:none'></div>
       </div>
+    </div>      
+  </div>
 
-    </div>
-      
   <script type='text/javascript'>
 var gaJsHost = (('https:' == document.location.protocol) ? 'https://ssl.' : 'http://www.');
 document.write(unescape("%3Cscript src='" + gaJsHost + "google-analytics.com/ga.js' type='text/javascript'%3E%3C/script%3E"));
