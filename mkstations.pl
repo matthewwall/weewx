@@ -123,7 +123,7 @@ if(open(OFILE,">$ofile")) {
                 print OFILE "/* error: $errmsg */\n";
             }
             print OFILE "var sites = [\n";
-            foreach my $rec (sort { $a->{description} cmp $b->{description} } @records) {
+            foreach my $rec (sort { trim($a->{description}) cmp trim($b->{description}) } @records) {
                 print OFILE "  { description: '$rec->{description}',\n";
                 print OFILE "    url: '$rec->{url}',\n";
                 print OFILE "    latitude: $rec->{latitude},\n";
@@ -184,4 +184,11 @@ sub logerr {
     my ($msg) = @_;
     my $tstr = strftime $DATE_FORMAT_LOG, gmtime time;
     print STDERR "$tstr $msg\n";
+}
+
+# strip any leading whitespace or non-alphanumeric characters from beginning,
+# then return lowercase.
+sub trim {
+    (my $s = $_[0]) =~ s/^\s+|^[^A-Za-z0-9]+//g;
+    return "\L$s";
 }
