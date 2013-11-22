@@ -60,6 +60,8 @@
   <script type="text/javascript" src="http://maps.google.com/maps/api/js?sensor=false"></script>
   <script type="text/javascript">
 var sites = [];
+var count_keys = new Array();
+var map;
 
 var infowindow = new google.maps.InfoWindow({
   content: 'nothing selected'
@@ -101,8 +103,10 @@ function initialize_map() {
     },
     mapTypeId: google.maps.MapTypeId.ROADMAP
   };
+
+  /* populate the map and station list table */
   var canvas = document.getElementById("map_canvas");
-  var map = new google.maps.Map(canvas, settings);
+  map = new google.maps.Map(canvas, settings);
   var s = document.getElementById('site_listing');
   var tbl = document.createElement('table');
   var tbdy = document.createElement('tbody');
@@ -122,6 +126,7 @@ function initialize_map() {
       map: map,
       title: title,
     });
+    sites[i].marker = mkr;
     attach_info(map, mkr, i);
     var tr = document.createElement('tr');
     var td = document.createElement('td');
@@ -136,7 +141,7 @@ function initialize_map() {
     td.id = 'site_' + i;
     td.style.width = '18px';
     td.style.border = '1px solid ' + borderColor;
-    attach_mouse(td, map, mkr, i);
+    attach_station(td, map, mkr, i);
     tr.appendChild(td);
     tr.className = rowclass;
     tbdy.appendChild(tr);
@@ -155,10 +160,10 @@ function initialize_map() {
   tbl.appendChild(tbdy);
   s.appendChild(tbl);
 
+  /* populate the station summary table */
   var s = document.getElementById('station_summary_details');
   var tbl = document.createElement('table');
   var tbdy = document.createElement('tbody');
-  var count_keys = new Array();
   for(var key in counts) {
     count_keys.push(key);
   }
@@ -171,6 +176,12 @@ function initialize_map() {
     var td = document.createElement('td');
     td.className = 'alignright';
     td.innerHTML = counts[count_keys[key]];
+    tr.appendChild(td);
+    var td = document.createElement('td');
+    td.id = 'station_type_' + count_keys[key];
+    td.style.width = '18px';
+    td.style.border = '1px solid ' + borderColor;
+    attach_station_type(td, count_keys[key]);
     tr.appendChild(td);
     tbdy.appendChild(tr);
   }
@@ -197,32 +208,95 @@ function create_content(idx) {
 
 function attach_info(map, marker, idx) {
   google.maps.event.addListener(marker, 'click', function() {
+      show_all_markers();
       var str = create_content(idx);
       infowindow.setContent(str);
       infowindow.open(map, marker);
+      dehighlight_all_types();
+      dehighlight_all();
       highlight_row(idx);
     });
 }
 
-function attach_mouse(elem, map, marker, idx) {
+function attach_station(elem, map, marker, idx) {
   elem.addEventListener('click', function() {
+      dehighlight_all();
+      highlight_row(idx);
+      show_all_markers();
       var str = create_content(idx);
       infowindow.setContent(str);
       infowindow.open(map, marker);
-      highlight_row(idx);
+      dehighlight_all_types();
     });
+}
+
+function attach_station_type(elem, station_type) {
+  elem.addEventListener('click', function() {
+      dehighlight_all_types();
+      highlight(document.getElementById('station_type_' + station_type));
+      infowindow.close();
+      dehighlight_all();
+      hide_all_markers();
+      for(i=0; i<sites.length; i++) {
+        if(station_type == 'total' || sites[i].station == station_type) {
+          show_marker(i);
+        }
+        if(sites[i].station == station_type) {
+          highlight_row(i);
+        }
+      }
+    });
+}
+
+function highlight(elem) {
+  if(elem) {
+    elem.style.backgroundColor = highlightColor;
+  }
+}
+
+function dehighlight(elem) {
+  if(elem) {
+    elem.style.backgroundColor = backgroundColor;
+  }
 }
 
 function highlight_row(idx) {
+  highlight(document.getElementById('site_' + idx));
+}
+
+function dehighlight_row(idx) {
+  dehighlight(document.getElementById('site_' + idx));
+}
+
+function dehighlight_all() {
   for(var i=0; i<sites.length; i++) {
-    var elem = document.getElementById('site_' + i);
-    if(elem) {
-      var color = backgroundColor;
-      if(idx == i) {
-        color = highlightColor;
-      }
-      elem.style.backgroundColor = color;
-    }
+    dehighlight_row(i);
+  }
+}
+
+function show_marker(idx) {
+  sites[idx].marker.setMap(map);
+}
+
+function hide_marker(idx) {
+  sites[idx].marker.setMap(null);
+}
+
+function show_all_markers() {
+  for(var i=0; i<sites.length; i++) {
+    show_marker(i);
+  }
+}
+
+function hide_all_markers() {
+  for(var i=0; i<sites.length; i++) {
+    hide_marker(i);
+  }
+}
+
+function dehighlight_all_types() {
+  for(var key in count_keys) {
+    dehighlight(document.getElementById('station_type_' + count_keys[key]));
   }
 }
 
