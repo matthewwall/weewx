@@ -37,9 +37,9 @@ my $DATE_FORMAT_LOG = "%b %d %H:%M:%S";
 my $DATE_FORMAT_HTML = "%H:%M:%S %d %b %Y UTC";
 
 # get a unicode collator for proper sorting
-#use Unicode::Collate;
-#my $keysfile = "allkeys.txt";
-#my $COLLATOR = Unicode::Collate->new(table=>$keysfile);
+use Unicode::Collate;
+my $keysfile = "allkeys.txt";
+my $COLLATOR = Unicode::Collate->new(table=>$keysfile);
 
 while($ARGV[0]) {
     my $arg = shift;
@@ -99,7 +99,8 @@ if (-f $db) {
 		$r{longitude} = $lon;
 		$r{station_type} = $st;
 		$r{last_seen} = $ts;
-#                $r{sort_key} = $COLLATOR->getSortKey(trim($desc));
+                $r{sort_key} = $COLLATOR->getSortKey(trim($desc));
+#                $r{sort_key} = trim($desc);
                 if(!defined($unique{$url}) || $ts>$unique{$url}->{last_seen}) {
                     $unique{$url} = \%r;
                 }
@@ -197,19 +198,21 @@ sub logerr {
 
 # strip any leading whitespace or non-alphanumeric characters from beginning,
 # then return lowercase.
+#sub trim {
+#    (my $s = $_[0]) =~ s/^\s+|^[^A-Za-z0-9]+//g;
+#    return "\L$s";
+#}
+
+# strip any leading whitespace from beginning
 sub trim {
-    (my $s = $_[0]) =~ s/^\s+|^[^A-Za-z0-9]+//g;
-    return "\L$s";
+    (my $s = $_[0]) =~ s/^\s+//g;
+    return $s;
 }
+
+#sub sort_func {
+#    trim($a->{description}) cmp trim($b->{description});
+#}
 
 sub sort_func {
-    trim($a->{description}) cmp trim($b->{description});
+    $a->{sort_key} cmp $b->{sort_key};
 }
-
-#sub sort_func {
-#    $a->{sort_key} cmp $b->{sort_key};
-#}
-
-#sub sort_func {
-#    $COLLATOR->cmp(trim($a->{description}), trim($b->{description}));
-#}
