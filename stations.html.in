@@ -50,7 +50,6 @@
 #site_listing td {
   background-repeat:no-repeat;
   background-position:center;
-  background-size:12px;
 }
 .alignright {
   text-align: right;
