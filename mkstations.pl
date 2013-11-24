@@ -6,6 +6,9 @@
 # with a map and list of stations.
 #
 # Run this script periodically to update the web page.
+#
+# thanks to tom christiansen for sorting details:
+#  http://www.perl.com/pub/2011/08/whats-wrong-with-sort-and-how-to-fix-it.html
 
 use strict;
 use DBI;
@@ -32,6 +35,11 @@ my $DATE_FORMAT_LOG = "%b %d %H:%M:%S";
 
 # format for web page display
 my $DATE_FORMAT_HTML = "%H:%M:%S %d %b %Y UTC";
+
+# get a unicode collator for proper sorting
+#use Unicode::Collate;
+#my $keysfile = "allkeys.txt";
+#my $COLLATOR = Unicode::Collate->new(table=>$keysfile);
 
 while($ARGV[0]) {
     my $arg = shift;
@@ -91,6 +99,7 @@ if (-f $db) {
 		$r{longitude} = $lon;
 		$r{station_type} = $st;
 		$r{last_seen} = $ts;
+#                $r{sort_key} = $COLLATOR->getSortKey(trim($desc));
                 if(!defined($unique{$url}) || $ts>$unique{$url}->{last_seen}) {
                     $unique{$url} = \%r;
                 }
@@ -123,7 +132,7 @@ if(open(OFILE,">$ofile")) {
                 print OFILE "/* error: $errmsg */\n";
             }
             print OFILE "var sites = [\n";
-            foreach my $rec (sort { trim($a->{description}) cmp trim($b->{description}) } @records) {
+            foreach my $rec (sort sort_func @records) {
                 print OFILE "  { description: '$rec->{description}',\n";
                 print OFILE "    url: '$rec->{url}',\n";
                 print OFILE "    latitude: $rec->{latitude},\n";
@@ -192,3 +201,15 @@ sub trim {
     (my $s = $_[0]) =~ s/^\s+|^[^A-Za-z0-9]+//g;
     return "\L$s";
 }
+
+sub sort_func {
+    trim($a->{description}) cmp trim($b->{description});
+}
+
+#sub sort_func {
+#    $a->{sort_key} cmp $b->{sort_key};
+#}
+
+#sub sort_func {
+#    $COLLATOR->cmp(trim($a->{description}), trim($b->{description}));
+#}
