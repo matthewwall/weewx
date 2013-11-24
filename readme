@@ -1,5 +1,5 @@
 weewx station registry
-31jan2013 mwall
+24nov2013 mwall
 
 this is a quick hack to enable weewx stations to phone home so they can be
 plotted on a google map.  stations phone home periodically with their url,
@@ -7,28 +7,23 @@ location, lat/lon, and station type.  these data are plotted on a map.  if
 a station does not phone home after a certain period of time it will be
 removed from the map.
 
-register.cgi - runs on the web server, accepts connections from stations
+as of weewx 2.5, the client-side of station registry is included in the
+weewx distribution in restful.py.
 
-register.py - weewx extension that enables a station to register
+
+these are the server-side bits:
+
+register.cgi - runs on the web server, accepts connections from stations
 
 mkstations.pl - generate the html page by injecting station data into template
 
+savecounts.pl - record changes to number and types of stations
+
+archivelog.pl - rollover the register logfile
+
 stations.html.in - template html page
 
-
-to enable this module:
-
-1) copy register.py to bin/weewx
-
-2) add the following to the weewx.conf file:
-
-[StdRESTful]
-  [[StationRegistry]]
-    #description = My Little Weather Station
-    station_url = http://example.com/weather/
-    driver = weewx.register.StationRegistry
-
-3) restart weewx
+crontab.reg - crontab entries for generating pages, log rollover, history
 
 
 to configure the server:
