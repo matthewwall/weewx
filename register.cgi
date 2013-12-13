@@ -39,6 +39,9 @@ my $arclogapp = "$basedir/html/register/archivelog.pl";
 # location of the count app
 my $savecntapp = "$basedir/html/register/savecounts.pl";
 
+# location of the log file
+my $logfile = "$basedir/html/register/register.log";
+
 # format of the date as returned in the html footers
 my $DATE_FORMAT = "%Y.%m.%d %H:%M:%S UTC";
 
@@ -140,12 +143,19 @@ sub runcmd {
     &writefooter($tstr);    
 }
 
+# update the stations web page then update the counts database
+sub updatestations() {
+    `$genhtmlapp >> $logfile 2>&1`;
+    `$savecntapp >> $logfile 2>&1`;
+}
+
 sub handleregistration {
     my(%rqpairs) = @_;
 
     my ($status,$msg,$rec) = registerstation(%rqpairs);
     if($status eq 'OK') {
         &writereply('Registration Complete', 'OK', $msg, $rec, $rqpairs{debug});
+        &updatestations();
     } else {
         &writereply('Registration Failed', 'FAIL', $msg, $rec, $rqpairs{debug});
     }

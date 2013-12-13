@@ -147,7 +147,6 @@ if(open(OFILE,">$ofile")) {
             my $tstr = strftime $DATE_FORMAT_HTML, gmtime time;
             my $n = $stale / 86_400;
             print OFILE "stations will be removed after $n days without contact<br/>\n";
-            print OFILE "this station listing is updated every 10 minutes<br/>\n";
             print OFILE "last update $tstr<br/>\n";
             print OFILE "<!-- $version -->\n";
         } else {
