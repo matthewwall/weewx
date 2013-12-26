@@ -30,17 +30,29 @@
   text-align: right;
   font-size: 80%;
 }
+#content {
+  width: 100%;
+}
 #summary {
 }
 #instructions {
   float: left;
-  width: 60%;
+  padding-right: 40px;
+  width: 50%;
 }
 #station_summary {
   float: right;
-  width: 30%;
 }
 #station_summary_details td {
+  padding-right: 10px;
+}
+#ping_summary {
+  float: right;
+}
+#ping_details {
+  width: 180px;
+  height: 80px;
+  padding-left: 50px;
   padding-right: 10px;
 }
 #sites {
@@ -48,8 +60,8 @@
   padding-top: 20px;
 }
 #site_listing td {
-  background-repeat:no-repeat;
-  background-position:center;
+  background-repeat: no-repeat;
+  background-position: center;
 }
 .alignright {
   text-align: right;
@@ -68,8 +80,12 @@
   <script type="text/javascript" src="http://maps.google.com/maps/api/js?sensor=false"></script>
   <script type="text/javascript">
 var sites = [];
-var count_keys = new Array();
 var map;
+var count_keys = new Array(); /* associative array of station type counts */
+var pingdays = 30; /* number of days in ping histogram */
+var pings = new Array(pingdays); /* histogram of daily pings */
+var stale = 0;
+var maxpings = 0; /* max pings in single day */
 
 var infowindow = new google.maps.InfoWindow({
   content: 'nothing selected'
@@ -96,6 +112,9 @@ function count_sorter(a,b) {
 }
 
 function initialize_map() {
+  var now = Math.round((new Date).getTime() / 1000);
+
+  /* create a map with the settings we want */
   var latlng = new google.maps.LatLng(21.0,0.0);
   var settings = {
     zoom: 2,
@@ -111,6 +130,9 @@ function initialize_map() {
     mapTypeId: google.maps.MapTypeId.ROADMAP
   };
 
+  /* initialize the ping histogram */
+  for(var i=0; i<pings.length; i++) { pings[i] = 0; }
+
   /* populate the map and station list table */
   var canvas = document.getElementById("map_canvas");
   map = new google.maps.Map(canvas, settings);
@@ -118,8 +140,12 @@ function initialize_map() {
   var tbl = document.createElement('table');
   var tbdy = document.createElement('tbody');
   rowclass = 'oddrow';
+
+  /* track counts of each station type */
   var counts = {};
   counts['total'] = 0;
+
+  /* loop through all sites to get the data we need */
   for (var i=0; i<sites.length; i++) {
     var title = 'untitled';
     if(sites[i].description.length > 0) {
@@ -156,12 +182,26 @@ function initialize_map() {
     } else {
       rowclass = 'oddrow'
     }
+
+    /* do the station count accounting */
     counts['total'] = counts['total'] + 1;
     var n = 0;
     if(sites[i].station in counts) {
       n = counts[sites[i].station];
     }
     counts[sites[i].station] = n + 1;
+
+    /* do the ping accounting */
+    var tdiff = now - sites[i].last_seen;
+    var idx = Math.round(tdiff / 86400);
+    if(idx < pingdays) {
+      pings[idx] += 1;
+    } else {
+      stale += 1;
+    }
+    if(pings[idx] > maxpings) {
+      maxpings = pings[idx];
+    }
   }
   tbl.appendChild(tbdy);
   s.appendChild(tbl);
@@ -192,6 +232,34 @@ function initialize_map() {
   }
   tbl.appendChild(tbdy);
   s.appendChild(tbl);
+
+  /* render the ping histogram */
+  canvas = document.getElementById('ping_details');
+  if(canvas) {
+    maxpings = 10;
+    var w = canvas.clientWidth;
+    var h = canvas.clientHeight;
+    var barwidth = Math.round(w / pings.length);
+    var unitheight = Math.round(h / maxpings);
+    var c = canvas.getContext("2d");
+    c.strokeStyle = "#dddddd";
+    for(var i=0; i<h; i+=unitheight) {
+      c.beginPath();
+      c.moveTo(0, i);
+      c.lineTo(w, i); 
+      c.stroke();
+    }
+    c.fillStyle = "#888888";
+    c.strokeStyle = "#dddddd";
+    for(var i=0; i<pings.length; i++) {
+      var bh = pings[pings.length-i-1]*unitheight;
+      c.fillRect(i*barwidth, h-bh, barwidth, bh);
+      c.beginPath();
+      c.moveTo(i*barwidth, h-4);
+      c.lineTo(i*barwidth, h);
+      c.stroke();
+    }
+  }
 }
 
 function create_content(idx) {
@@ -365,21 +433,21 @@ function toggle(control, id) {
           <div id='instruction_details'>
             <p>
 	      Enable <span class='code'>register_this_station</span> in
-              weewx.conf, then restart weewx. Your weewx.conf should look
-              something like this:
+              weewx.conf, then restart weewx:
             </p>
 	    <pre>
 [StdRESTful]
-    ...
     [[StationRegistry]]
         register_this_station = True
 	    </pre>
           </div>
         </div>
+        <div id='ping_summary'>
+          <canvas id='ping_details'></canvas>
+        </div>
         <div id='station_summary'>
           <strong>Station Summary</strong>
-          <div id='station_summary_details'>
-          </div>
+          <div id='station_summary_details'></div>
         </div>
       </div>
 
