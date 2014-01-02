@@ -48,12 +48,8 @@
 }
 #ping_summary {
   float: right;
-}
-#ping_details {
-  width: 180px;
-  height: 80px;
-  padding-left: 50px;
-  padding-right: 10px;
+  padding-left: 20px;
+  padding-top: 20px;
 }
 #sites {
   clear: both;
@@ -81,16 +77,12 @@
   <script type="text/javascript">
 var sites = [];
 var map;
-var count_keys = new Array(); /* associative array of station type counts */
-var pingdays = 30; /* number of days in ping histogram */
-var pings = new Array(pingdays); /* histogram of daily pings */
-var stale = 0;
-var maxpings = 0; /* max pings in single day */
 
 var infowindow = new google.maps.InfoWindow({
   content: 'nothing selected'
 });
 
+var pingdays = 30; /* number of days in ping histogram */
 var backgroundColor = '#ffffff';
 var highlightColor = '#9fcef9';
 
@@ -130,20 +122,23 @@ function initialize_map() {
     mapTypeId: google.maps.MapTypeId.ROADMAP
   };
 
-  /* initialize the ping histogram */
-  for(var i=0; i<pings.length; i++) { pings[i] = 0; }
-
   /* populate the map and station list table */
   var canvas = document.getElementById("map_canvas");
   map = new google.maps.Map(canvas, settings);
   var s = document.getElementById('site_listing');
   var tbl = document.createElement('table');
   var tbdy = document.createElement('tbody');
-  rowclass = 'oddrow';
+  var rowclass = 'oddrow';
 
   /* track counts of each station type */
   var counts = {};
   counts['total'] = 0;
+
+  /* histogram of when each station last phoned home */
+  var maxpings = 0; /* maximum number of pings in a single day */
+  var pings = new Array(pingdays); /* histogram of daily pings */
+  for(var i=0; i<pings.length; i++) { pings[i] = 0; }
+  var stale = 0;
 
   /* loop through all sites to get the data we need */
   for (var i=0; i<sites.length; i++) {
@@ -206,10 +201,16 @@ function initialize_map() {
   tbl.appendChild(tbdy);
   s.appendChild(tbl);
 
-  /* populate the station summary table */
+  populate_station_table(counts);
+
+  draw_ping_histogram(pings, maxpings);
+}
+
+function populate_station_table(counts) {
   var s = document.getElementById('station_summary_details');
   var tbl = document.createElement('table');
   var tbdy = document.createElement('tbody');
+  var count_keys = new Array(); /* array of station types */
   for(var key in counts) {
     count_keys.push(key);
   }
@@ -226,26 +227,26 @@ function initialize_map() {
     var td = document.createElement('td');
     td.id = 'station_type_' + count_keys[key];
     td.className = 'indicator';
-    attach_station_type(td, count_keys[key]);
+    attach_station_type(td, count_keys[key], count_keys);
     tr.appendChild(td);
     tbdy.appendChild(tr);
   }
   tbl.appendChild(tbdy);
   s.appendChild(tbl);
+}
 
-  /* render the ping histogram */
+function draw_ping_histogram(pings, maxpings) {
   canvas = document.getElementById('ping_details');
   if(canvas) {
-    maxpings = 10;
     var w = canvas.clientWidth;
     var h = canvas.clientHeight;
     var barwidth = Math.round(w / pings.length);
     var unitheight = Math.round(h / maxpings);
     var c = canvas.getContext("2d");
     c.strokeStyle = "#dddddd";
-    for(var i=0; i<h; i+=unitheight) {
+    for(var i=1; i<h; i+=5*unitheight) {
       c.beginPath();
-      c.moveTo(0, i);
+      c.moveTo(1, i);
       c.lineTo(w, i); 
       c.stroke();
     }
@@ -259,6 +260,11 @@ function initialize_map() {
       c.lineTo(i*barwidth, h);
       c.stroke();
     }
+    c.strokeStyle = "#dddddd";
+    c.beginPath();
+    c.moveTo(1, h);
+    c.lineTo(w, h); 
+    c.stroke();
   }
 }
 
@@ -299,7 +305,7 @@ function attach_station(elem, map, marker, idx) {
     });
 }
 
-function attach_station_type(elem, station_type) {
+function attach_station_type(elem, station_type, count_keys) {
   elem.addEventListener('click', function() {
       for(var key in count_keys) {
         dehighlight(document.getElementById('station_type_'+count_keys[key]));

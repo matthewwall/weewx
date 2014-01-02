@@ -27,8 +27,11 @@ my $version = '$Id$';
 
 my $basedir = '/home/content/t/o/m/tomkeffer';
 
-# location of the sqlite database
+# location of the station database
 my $db = "$basedir/weereg/stations.sdb";
+
+# location of the history database
+my $histdb = "$basedir/weereg/history.sdb";
 
 # location of the html generator
 my $genhtmlapp = "$basedir/html/register/mkstations.pl";
@@ -59,6 +62,8 @@ if($RMETHOD eq 'GET' || $RMETHOD eq 'POST') {
         &runcmd('archive log', $arclogapp);
     } elsif($rqpairs{action} eq 'getcounts') {
         &runcmd('save counts', $savecntapp);
+    } elsif($rqpairs{action} eq 'history') {
+        &history(%rqpairs);
     } else {
         &handleregistration(%rqpairs);
     }
@@ -73,8 +78,8 @@ exit 0;
 # figure out the environment in which we are running
 sub checkenv {
     my $title = 'checkenv';
-    my $tstr = &getformatteddate;
-    &writecontenttype;
+    my $tstr = &getformatteddate();
+    &writecontenttype();
     &writeheader($title);
     print STDOUT "<p><strong>$title</strong></p>\n";
 
@@ -127,8 +132,8 @@ sub runcmd {
         $output = `$cmd 2>&1`;
     }
 
-    my $tstr = &getformatteddate;
-    &writecontenttype;
+    my $tstr = &getformatteddate();
+    &writecontenttype();
     &writeheader($title);
     print STDOUT "<p><strong>$title</strong></p>\n";
 
@@ -143,12 +148,6 @@ sub runcmd {
     &writefooter($tstr);    
 }
 
-# update the stations web page then update the counts database
-sub updatestations() {
-    `$genhtmlapp >> $logfile 2>&1`;
-    `$savecntapp >> $logfile 2>&1`;
-}
-
 sub handleregistration {
     my(%rqpairs) = @_;
 
@@ -159,6 +158,12 @@ sub handleregistration {
     } else {
         &writereply('Registration Failed', 'FAIL', $msg, $rec, $rqpairs{debug});
     }
+}
+
+# update the stations web page then update the counts database
+sub updatestations() {
+    `$genhtmlapp >> $logfile 2>&1`;
+    `$savecntapp >> $logfile 2>&1`;
 }
 
 # if this is a new station, add an entry to the database.  if an entry already
@@ -285,8 +290,8 @@ sub registerstation {
 sub writereply {
     my($title, $status, $msg, $rec, $debug) = @_;
 
-    my $tstr = &getformatteddate;
-    &writecontenttype;
+    my $tstr = &getformatteddate();
+    &writecontenttype();
     &writeheader($title);
     print STDOUT "<p><strong>$title</strong></p>\n";
     print STDOUT "<pre>\n";
@@ -308,6 +313,214 @@ sub writereply {
     &writefooter($tstr);
 }
 
+sub get_history_data {
+    use DBI;
+    my @times;
+    my @counts;
+    my @stypes;
+
+    my $errmsg = q();
+    my $dbh = DBI->connect("dbi:SQLite:$histdb", q(), q(), {RaiseError => 0});
+    if (!$dbh) {
+        $errmsg = "cannot connect to database: $DBI::errstr";
+        return \@times, \@counts, \@stypes;
+    }
+
+    my $sth = $dbh->prepare("select station_type from history group by station_type");
+    if (!$sth) {
+        $errmsg = "cannot prepare select statement: $DBI::errstr";
+        return \@times, \@counts, \@stypes;
+    }
+    $sth->execute();
+    $sth->bind_columns(\my($st));
+    while($sth->fetch()) {
+        push @stypes, $st;
+    }
+    $sth->finish();
+    undef $sth;
+
+    $sth = $dbh->prepare("select datetime from history group by datetime order by datetime asc");
+    if (!$sth) {
+        $errmsg = "cannot prepare select statement: $DBI::errstr";
+        return \@times, \@counts, \@stypes;
+    }
+    $sth->execute();
+    $sth->bind_columns(\my($ts));
+    while($sth->fetch()) {
+        push @times, $ts;
+    }
+    $sth->finish();
+    undef $sth;
+
+    foreach my $t (@times) {
+	my %c;
+	foreach my $s (@stypes) {
+	    $c{$s} = 0;
+	}
+        my $sth = $dbh->prepare("select station_type,active,stale from history where datetime=$t");
+        if (!$sth) {
+            $errmsg = "cannot prepare select statement: $DBI::errstr";
+            return \@times, \@counts, \@stypes;
+        }
+        $sth->execute();
+        $sth->bind_columns(\my($st,$active,$stale));
+        while($sth->fetch()) {
+	    $c{$st} = $active;
+        }
+        $sth->finish();
+        undef $sth;
+	push @counts, \%c;
+    }
+
+    $dbh->disconnect();
+    undef $dbh;
+
+    return \@times, \@counts, \@stypes;
+}
+
+sub history {
+    my(%rqpairs) = @_;
+
+    my($tref, $cref, $sref) = get_history_data();
+    my @times = @$tref;
+    my @counts = @$cref;
+    my @stations = @$sref;
+
+    my $tstr = &getformatteddate();
+    &writecontenttype();
+    print STDOUT <<EoB1;
+<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 3.2 Final//EN\">
+<html>
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+  <title>history</title>
+  <script>
+EoB1
+
+    print STDOUT "var data = {\n";
+    print STDOUT "time: [";
+    for(my $i=0; $i<scalar(@times); $i++) {
+        print STDOUT "," if $i > 0;
+        print STDOUT "$times[$i]";
+    }
+    print STDOUT "],\n";
+    print STDOUT "totals: [";
+    for(my $i=0; $i<scalar(@times); $i++) {
+        print STDOUT "," if $i > 0;
+        print STDOUT "$counts[$i]{total}";
+    }
+    print STDOUT "],\n";
+    print STDOUT "stations: [\n";
+    foreach my $k (@stations) {
+        next if $k eq 'total';
+        print STDOUT "{ name: '$k', ";
+        print STDOUT "values: [";
+        for (my $j=0; $j<scalar(@times); $j++) {
+            print STDOUT "," if $j > 0;
+            print STDOUT "$counts[$j]{$k}";
+        }
+        print STDOUT "] },\n";
+    }
+    print STDOUT "]\n";
+    print STDOUT "}\n";
+
+    print STDOUT <<EoB2;
+function draw_plot() {
+  var colors = [ '#ff0000', '#880000', '#00aa00', '#005500',
+                 '#0000ff', '#000088', '#000000', '#888800',
+                 '#00aaaa', '#008888', '#ff00ff', '#880088' ];
+  var canvas = document.getElementById('history_canvas');
+  canvas.width = 1000;
+  canvas.height = 800;
+  var c = canvas.getContext('2d');
+  c.font = '10px sans-serif';
+  var rbuf = 80;
+  var rpad = 5;
+  var vpad = 15;
+  var w = c.canvas.width;
+  var plotw = w - rbuf;
+  var h = c.canvas.height;
+  var maxcnt = 0;
+  for(var i=0; i<data.totals.length; i++) {
+    if(data.totals[i] > maxcnt) {
+      maxcnt = data.totals[i];
+    }
+  }
+  var timemin = 9999999999999;
+  var timemax = 0;
+  for(var i=0; i<data.time.length; i++) {
+    if(data.time[i] < timemin) {
+      timemin = data.time[i];
+    }
+    if(data.time[i] > timemax) {
+      timemax = data.time[i];
+    }
+  }
+  var y = Math.round(h / maxcnt);
+  var x = Math.round(plotw / data.time.length);
+  var sums = Array(data.time.length);
+  var used = Array();
+  for(var i=0; i<sums.length; i++) { sums[i] = 0; }
+  var sorted = data.stations.reverse(sorter);
+  for(var i=0; i<sorted.length; i++) {
+    c.strokeStyle = colors[i%colors.length];
+    c.beginPath();
+    c.moveTo(0,h);
+    var xval = 0;
+    var yval = 0;
+    for(var j=0; j<data.time.length; j++) {
+      sums[j] += sorted[i].values[j];
+      xval = plotw * (data.time[j] - timemin) / (timemax - timemin);
+/*      xval = j*x; */  /* sequential time scaling */
+      yval = h-sums[j]*y;  /* stacked */
+/*      yval = h-sorted[i].values[j]*y; */ /* not stacked */
+      c.lineTo(xval, yval);
+    }
+    while(used[yval]) {
+      yval -= vpad;
+    }
+    c.fillStyle = colors[i%colors.length];
+    c.fillText(sorted[i].name, plotw+rpad, yval);
+    used[yval] = 1;
+    c.stroke();
+  }
+  /* horizontal and vertial axes */
+  c.strokeStyle = "#000000";
+  c.beginPath();
+  c.moveTo(1, 1);
+  c.lineTo(1, h-1);
+  c.lineTo(w, h-1);
+  c.stroke();
+  /* tick marks on the axes */
+  var ticwidth = 4;
+  for(var j=0; j*y<h; j++) {
+    c.beginPath();
+    c.moveTo(w-1, j*y);
+    c.lineTo(w-ticwidth, j*y);
+    if(j%5 == 0) {
+      c.lineTo(w-ticwidth*2, j*y);
+    }
+    c.stroke();
+  }
+}
+
+function sorter(a,b) {
+  if(a.name < b.name)
+    return -1;
+  if(a.name > b.name)
+    return 1;
+  return 0;
+}
+  </script>
+</head>
+<body onload='draw_plot();'>
+<canvas id='history_canvas'></canvas>
+<br/>
+EoB2
+
+    &writefooter($tstr);
+}
+
 sub writecontenttype {
     my($type) = @_;
 
@@ -316,12 +529,13 @@ sub writecontenttype {
 }
 
 sub writeheader {
-    my($title) = @_;
+    my($title,$head) = @_;
 
     print STDOUT "<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 3.2 Final//EN\">\n";
     print STDOUT "<html>\n";
     print STDOUT "<head>\n";
     print STDOUT "  <title>$title</title>\n";
+    print STDOUT "$head\n";
     print STDOUT "</head>\n";
     print STDOUT "<body>\n";
 };
