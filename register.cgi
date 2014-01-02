@@ -485,6 +485,7 @@ function draw_plot() {
     c.stroke();
   }
   /* horizontal and vertial axes */
+  c.fillStyle = "#000000";
   c.strokeStyle = "#000000";
   c.beginPath();
   c.moveTo(1, 1);
@@ -499,6 +500,7 @@ function draw_plot() {
     c.lineTo(w-ticwidth, j*y);
     if(j%5 == 0) {
       c.lineTo(w-ticwidth*2, j*y);
+      c.fillText(j, w-ticwidth*2-rpad*3, h-j*y);
     }
     c.stroke();
   }
