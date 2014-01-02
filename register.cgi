@@ -386,6 +386,10 @@ sub history {
     my @counts = @$cref;
     my @stations = @$sref;
 
+    my $stacked = $rqpairs{stacked} eq '0' ? '0' : '1';
+    my $sequential = $rqpairs{sequential} eq '1' ? '1' : '0';
+    my $fill = $rqpairs{fill} eq '1' ? '1' : '0';
+
     my $tstr = &getformatteddate();
     &writecontenttype();
     print STDOUT <<EoB1;
@@ -425,9 +429,12 @@ EoB1
     print STDOUT "}\n";
 
     print STDOUT <<EoB2;
-function draw_plot() {
+function draw_plot(stacked, sequential, fill) {
   var colors = [ '#ff0000', '#880000', '#00aa00', '#005500',
                  '#0000ff', '#000088', '#000000', '#888800',
+                 '#00aaaa', '#008888', '#ff00ff', '#880088' ];
+  var fills =  [ '#ffaaaa', '#885555', '#00aa00', '#005500',
+                 '#0000ff', '#000088', '#dddddd', '#888800',
                  '#00aaaa', '#008888', '#ff00ff', '#880088' ];
   var canvas = document.getElementById('history_canvas');
   canvas.width = 1000;
@@ -458,32 +465,51 @@ function draw_plot() {
   }
   var y = Math.round(h / maxcnt);
   var x = Math.round(plotw / data.time.length);
-  var sums = Array(data.time.length);
-  var used = Array();
-  for(var i=0; i<sums.length; i++) { sums[i] = 0; }
   var sorted = data.stations.reverse(sorter);
+  var sums = Array(data.time.length);
+  for(var i=0; i<sums.length; i++) { sums[i] = 0; }
   for(var i=0; i<sorted.length; i++) {
+    for(var j=0; j<data.time.length; j++) {
+      sums[j] += sorted[i].values[j];
+    }
+  }
+
+  var used = Array();
+  for(var i=0; i<sorted.length; i++) {
+    c.fillStyle = fills[i%colors.length];
     c.strokeStyle = colors[i%colors.length];
     c.beginPath();
     c.moveTo(0,h);
     var xval = 0;
     var yval = 0;
     for(var j=0; j<data.time.length; j++) {
-      sums[j] += sorted[i].values[j];
-      xval = plotw * (data.time[j] - timemin) / (timemax - timemin);
-/*      xval = j*x; */  /* sequential time scaling */
-      yval = h-sums[j]*y;  /* stacked */
-/*      yval = h-sorted[i].values[j]*y; */ /* not stacked */
+      if(sequential) {
+        xval = j*x;
+      } else {
+        xval = plotw * (data.time[j] - timemin) / (timemax - timemin);
+      }
+      if(stacked) {
+        yval = h-sums[j]*y;
+      } else {
+        yval = h-sorted[i].values[j]*y;
+      }
       c.lineTo(xval, yval);
+      sums[j] -= sorted[i].values[j];
+    }
+    if(fill) {
+      c.lineTo(xval,h);
+      c.fill();
+    } else {
+      c.stroke();
     }
     while(used[yval]) {
-      yval -= vpad;
+      yval += vpad;
     }
     c.fillStyle = colors[i%colors.length];
     c.fillText(sorted[i].name, plotw+rpad, yval);
     used[yval] = 1;
-    c.stroke();
   }
+
   /* horizontal and vertial axes */
   c.fillStyle = "#000000";
   c.strokeStyle = "#000000";
@@ -515,7 +541,7 @@ function sorter(a,b) {
 }
   </script>
 </head>
-<body onload='draw_plot();'>
+<body onload='draw_plot($stacked,$sequential,$fill);'>
 <canvas id='history_canvas'></canvas>
 <br/>
 EoB2
