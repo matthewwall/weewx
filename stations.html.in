@@ -244,7 +244,7 @@ function draw_ping_histogram(pings, maxpings) {
     var unitheight = Math.round(h / maxpings);
     var c = canvas.getContext("2d");
     c.strokeStyle = "#dddddd";
-    for(var i=1; i<h; i+=5*unitheight) {
+    for(var i=h; i>=0; i-=5*unitheight) {
       c.beginPath();
       c.moveTo(1, i);
       c.lineTo(w, i); 
@@ -260,11 +260,6 @@ function draw_ping_histogram(pings, maxpings) {
       c.lineTo(i*barwidth, h);
       c.stroke();
     }
-    c.strokeStyle = "#dddddd";
-    c.beginPath();
-    c.moveTo(1, h);
-    c.lineTo(w, h); 
-    c.stroke();
   }
 }
 
