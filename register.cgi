@@ -502,12 +502,13 @@ function draw_plot(stacked, sequential, fill) {
     } else {
       c.stroke();
     }
-    while(used[yval]) {
-      yval += vpad;
+    var yblk = vpad * Math.round(yval / vpad);
+    while(used[yblk]) {
+      yblk += vpad;
     }
     c.fillStyle = colors[i%colors.length];
-    c.fillText(sorted[i].name, plotw+rpad, yval);
-    used[yval] = 1;
+    c.fillText(sorted[i].name, plotw+rpad, yblk);
+    used[yblk] = 1;
   }
 
   /* horizontal and vertial axes */

@@ -36,20 +36,20 @@ while($ARGV[0]) {
 }
 
 # query the station database for the current data
-my @records;
+my %stations;
 my $errmsg = q();
 if (-f $db) {
     my $dbh = DBI->connect("dbi:SQLite:$db", q(), q(), { RaiseError => 0 });
     if ($dbh) {
-	my $sth = $dbh->prepare("select station_type,last_seen from stations group by station_url");
+	my $sth = $dbh->prepare("select station_url,station_type,last_seen from stations group by station_url, last_seen");
 	if ($sth) {
 	    $sth->execute();
-	    $sth->bind_columns(\my($st,$ts));
+	    $sth->bind_columns(\my($url,$st,$ts));
 	    while($sth->fetch()) {
 		my %r;
 		$r{station_type} = $st;
 		$r{last_seen} = $ts;
-		push @records, \%r;
+                $stations{$url} = \%r;
 	    }
             $sth->finish();
             undef $sth;
@@ -75,7 +75,7 @@ if (-f $db) {
 my $now = time;
 my %active = ('total',0);
 my %stale  = ('total',0);
-for my $rec (@records) {
+while( my($url,$rec) = each %stations) {
     my $st = $rec->{station_type};
     $active{$st} = 0 if ! defined $active{$st};
     $stale{$st} = 0 if ! defined $stale{$st};
