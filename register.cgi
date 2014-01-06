@@ -430,27 +430,41 @@ EoB1
 
     print STDOUT <<EoB2;
 function draw_plot(stacked, sequential, fill) {
-  var colors = [ '#ff0000', '#880000', '#00aa00', '#005500',
-                 '#0000ff', '#000088', '#000000', '#888800',
-                 '#00aaaa', '#008888', '#ff00ff', '#880088' ];
-  var fills =  [ '#ffaaaa', '#885555', '#00aa00', '#005500',
-                 '#0000ff', '#000088', '#dddddd', '#888800',
-                 '#00aaaa', '#008888', '#ff00ff', '#880088' ];
+  var colors = [ '#ff0000', '#aa0000', '#660000', '#00aa00', '#005500',
+                 '#0000ff', '#0000aa', '#000066', '#000000', '#888800',
+                 '#00aaaa', '#008888', '#ff00ff', '#aa00aa', '#660066' ];
+  var fills =  [ '#ffaaaa', '#aa7777', '#663333', '#00aa00', '#005500',
+                 '#aaaaff', '#5555aa', '#222266', '#dddddd', '#888800',
+                 '#00aaaa', '#008888', '#ff00ff', '#aa00aa', '#660066' ];
   var canvas = document.getElementById('history_canvas');
   canvas.width = 1000;
   canvas.height = 800;
   var c = canvas.getContext('2d');
   c.font = '10px sans-serif';
-  var rbuf = 80;
+  var hlabelbuf = 80;
+  var vlabelbuf = 10;
+  var haxisbuf = 20;
   var rpad = 5;
-  var vpad = 15;
+  var ticwidth = 4;
+  var voffset = 50;
   var w = c.canvas.width;
-  var plotw = w - rbuf;
   var h = c.canvas.height;
+  var plotw = w - haxisbuf - hlabelbuf;
+  var ploth = h - vlabelbuf*3 - voffset;
   var maxcnt = 0;
-  for(var i=0; i<data.totals.length; i++) {
-    if(data.totals[i] > maxcnt) {
-      maxcnt = data.totals[i];
+  if(stacked) {
+    for(var i=0; i<data.totals.length; i++) {
+      if(data.totals[i] > maxcnt) {
+        maxcnt = data.totals[i];
+      }
+    }
+  } else {
+    for(var i=0; i<data.stations.length; i++) {
+      for(var j=0; j<data.stations[i].values.length; j++) {
+        if(data.stations[i].values[j] > maxcnt) {
+          maxcnt = data.stations[i].values[j];
+        }
+      }
     }
   }
   var timemin = 9999999999999;
@@ -463,9 +477,11 @@ function draw_plot(stacked, sequential, fill) {
       timemax = data.time[i];
     }
   }
-  var y = Math.round(h / maxcnt);
+  var tmph = ploth;
+/*  var tmph = ploth - vlabelbuf - voffset; */
+  var y = Math.round(tmph / maxcnt);
   var x = Math.round(plotw / data.time.length);
-  var sorted = data.stations.reverse(sorter);
+  var sorted = data.stations.sort(sort_by_count);
   var sums = Array(data.time.length);
   for(var i=0; i<sums.length; i++) { sums[i] = 0; }
   for(var i=0; i<sorted.length; i++) {
@@ -479,65 +495,105 @@ function draw_plot(stacked, sequential, fill) {
     c.fillStyle = fills[i%colors.length];
     c.strokeStyle = colors[i%colors.length];
     c.beginPath();
-    c.moveTo(0,h);
+    c.moveTo(0, voffset+ploth);
     var xval = 0;
     var yval = 0;
     for(var j=0; j<data.time.length; j++) {
       if(sequential) {
-        xval = j*x;
+        xval = x * j;
       } else {
         xval = plotw * (data.time[j] - timemin) / (timemax - timemin);
       }
       if(stacked) {
-        yval = h-sums[j]*y;
+        yval = y * sums[j];
       } else {
-        yval = h-sorted[i].values[j]*y;
+        yval = y * sorted[i].values[j];
       }
-      c.lineTo(xval, yval);
+      c.lineTo(xval, voffset + ploth - yval);
       sums[j] -= sorted[i].values[j];
     }
     if(fill) {
-      c.lineTo(xval,h);
+      c.lineTo(xval, voffset+ploth);
       c.fill();
     } else {
       c.stroke();
     }
-    var yblk = vpad * Math.round(yval / vpad);
+    var yblk = voffset + ploth - vlabelbuf * Math.round(yval / vlabelbuf);
     while(used[yblk]) {
-      yblk += vpad;
+      yblk += vlabelbuf;
     }
+/*    var yblk = voffset + ploth - yval; */
     c.fillStyle = colors[i%colors.length];
     c.fillText(sorted[i].name, plotw+rpad, yblk);
     used[yblk] = 1;
   }
 
+  var now = Math.round((new Date).getTime() / 1000);
+  var starttime = data.time[0];
+
+  /* change of accounting */
+  var changetime = Math.round((new Date(2014,0,4,0,0,0,0)).getTime() / 1000);
+  var v = plotw * (changetime - starttime) / (now - starttime);
+  c.strokeStyle = "#dddddd";
+  c.beginPath();
+  c.moveTo(v+1, voffset);
+  c.lineTo(v+1, voffset + ploth);
+  c.stroke();
+
   /* horizontal and vertial axes */
   c.fillStyle = "#000000";
   c.strokeStyle = "#000000";
   c.beginPath();
-  c.moveTo(1, 1);
-  c.lineTo(1, h-1);
-  c.lineTo(w, h-1);
+  c.moveTo(1, voffset);
+  c.lineTo(1, voffset+ploth);
+  c.lineTo(plotw, voffset+ploth);
   c.stroke();
-  /* tick marks on the axes */
-  var ticwidth = 4;
-  for(var j=0; j*y<h; j++) {
+
+  /* horizontal axis */
+  var inc = 604800; /* one week */
+  for(var t=starttime; t<now; t+=inc) {
+    var v = plotw * (t - starttime) / (now - starttime);
+    c.strokeStyle = "#dddddd";
     c.beginPath();
-    c.moveTo(w-1, j*y);
-    c.lineTo(w-ticwidth, j*y);
+    c.moveTo(v+1, voffset);
+    c.lineTo(v+1, voffset+ploth);
+    c.stroke();
+    c.strokeStyle = "#000000";
+    c.beginPath();
+    c.moveTo(v+1, voffset+ploth);
+    c.lineTo(v+1, voffset+ploth+ticwidth);
+    c.stroke();
+    var d = new Date(t*1000);
+    c.fillText(d.toLocaleDateString(), v+1, voffset+ploth+2*vlabelbuf);
+  }
+
+  /* vertical axis */
+  var edge = w - haxisbuf;
+  for(var j=0; j*y<ploth; j++) {
+    c.beginPath();
+    c.moveTo(edge-1, voffset+ploth-j*y);
+    c.lineTo(edge-ticwidth, voffset+ploth-j*y);
     if(j%5 == 0) {
-      c.lineTo(w-ticwidth*2, j*y);
-      c.fillText(j, w-ticwidth*2-rpad*3, h-j*y);
+      c.lineTo(edge-ticwidth*2, voffset+ploth-j*y);
+      c.fillText(j, edge+2, voffset+ploth-j*y);
     }
     c.stroke();
   }
 }
 
-function sorter(a,b) {
+function sort_by_name(a,b) {
   if(a.name < b.name)
     return -1;
   if(a.name > b.name)
     return 1;
+  return 0;
+}
+
+function sort_by_count(a,b) {
+  if(a.values[a.values.length-1] < b.values[b.values.length-1])
+    return 1;
+  if(a.values[a.values.length-1] > b.values[b.values.length-1])
+    return -1;
   return 0;
 }
   </script>
