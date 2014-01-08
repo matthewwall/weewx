@@ -33,27 +33,22 @@
 #content {
   width: 100%;
 }
-#summary {
-}
 #instructions {
-  float: left;
-  padding-right: 40px;
-  width: 50%;
+  padding-right: 20px;
 }
 #station_summary {
   float: right;
 }
+#ping_details_container {
+  padding-top: 10px;
+  padding-bottom: 20px;
+}
 #station_summary_details td {
   padding-right: 10px;
 }
-#ping_summary {
-  float: right;
-  padding-left: 20px;
-  padding-top: 20px;
-}
 #sites {
-  clear: both;
   padding-top: 20px;
+  padding-right: 20px;
 }
 #site_listing td {
   background-repeat: no-repeat;
@@ -238,11 +233,13 @@ function populate_station_table(counts) {
 function draw_ping_histogram(pings, maxpings) {
   canvas = document.getElementById('ping_details');
   if(canvas) {
+    canvas.width = 180;
+    canvas.height = 60;
+    var c = canvas.getContext("2d");
     var w = canvas.clientWidth;
     var h = canvas.clientHeight;
     var barwidth = Math.round(w / pings.length);
     var unitheight = Math.round(h / maxpings);
-    var c = canvas.getContext("2d");
     c.strokeStyle = "#dddddd";
     for(var i=h; i>=0; i-=5*unitheight) {
       c.beginPath();
@@ -428,32 +425,25 @@ function toggle(control, id) {
     </div>
 
     <div id='content'>
-      <div id='summary'>
-        <div id='instructions'>
-          <strong>How to Add Your Station</strong>
-          <div id='instruction_details'>
-            <p>
-	      Enable <span class='code'>register_this_station</span> in
-              weewx.conf, then restart weewx:
-            </p>
-	    <pre>
-[StdRESTful]
-    [[StationRegistry]]
-        register_this_station = True
-	    </pre>
-          </div>
-        </div>
-        <div id='ping_summary'>
+      <div id='station_summary'>
+        <div id='ping_details_container'>
           <canvas id='ping_details'></canvas>
         </div>
-        <div id='station_summary'>
-          <strong>Station Summary</strong>
-          <div id='station_summary_details'></div>
+        <strong>Station Summary</strong>
+        <div id='station_summary_details'></div>
+      </div>
+      <div id='instructions'>
+        <strong>How to Add Your Station</strong>
+        <div id='instruction_details'>
+          <p>
+	    Enable <a href="docs/usersguide.htm#station_registry"><span class='code'>register_this_station</span></a> in
+            weewx.conf, then restart weewx.
+          </p>
         </div>
       </div>
 
       <div id='sites'>
-        <div onclick="toggle(this,'site_listing')">&#x25b6; <strong>Station List</strong></div>
+        <div onclick="toggle(this,'site_listing')" style='cursor: pointer'>&#x25b6; <strong>Station List</strong></div>
         <div id='site_listing' style='display:none'></div>
       </div>
     </div>
