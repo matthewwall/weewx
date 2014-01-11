@@ -386,6 +386,8 @@ sub history {
     my @counts = @$cref;
     my @stations = @$sref;
 
+    my $width = $rqpairs{width} ? $rqpairs{width} : 1200;
+    my $height = $rqpairs{height} ? $rqpairs{height} : 1000;
     my $stacked = $rqpairs{stacked} eq '0' ? '0' : '1';
     my $sequential = $rqpairs{sequential} eq '1' ? '1' : '0';
     my $fill = $rqpairs{fill} eq '1' ? '1' : '0';
@@ -429,7 +431,7 @@ EoB1
     print STDOUT "}\n";
 
     print STDOUT <<EoB2;
-function draw_plot(stacked, sequential, fill) {
+function draw_plot(width, height, stacked, sequential, fill) {
   var colors = [ '#ff0000', '#aa0000', '#660000', '#00aa00', '#005500',
                  '#0000ff', '#0000aa', '#000066', '#000000', '#888800',
                  '#00aaaa', '#008888', '#ff00ff', '#aa00aa', '#660066' ];
@@ -437,8 +439,8 @@ function draw_plot(stacked, sequential, fill) {
                  '#aaaaff', '#5555aa', '#222266', '#dddddd', '#888800',
                  '#00aaaa', '#008888', '#ff00ff', '#aa00aa', '#660066' ];
   var canvas = document.getElementById('history_canvas');
-  canvas.width = 1000;
-  canvas.height = 800;
+  canvas.width = width;
+  canvas.height = height;
   var c = canvas.getContext('2d');
   c.font = '10px sans-serif';
   var hlabelbuf = 80;
@@ -477,10 +479,6 @@ function draw_plot(stacked, sequential, fill) {
       timemax = data.time[i];
     }
   }
-  var tmph = ploth;
-/*  var tmph = ploth - vlabelbuf - voffset; */
-  var y = Math.round(tmph / maxcnt);
-  var x = Math.round(plotw / data.time.length);
   var sorted = data.stations.sort(sort_by_count);
   var sums = Array(data.time.length);
   for(var i=0; i<sums.length; i++) { sums[i] = 0; }
@@ -489,6 +487,9 @@ function draw_plot(stacked, sequential, fill) {
       sums[j] += sorted[i].values[j];
     }
   }
+
+  var y = ploth / maxcnt;
+  var x = plotw / data.time.length;
 
   var used = Array();
   for(var i=0; i<sorted.length; i++) {
@@ -506,11 +507,11 @@ function draw_plot(stacked, sequential, fill) {
       }
       if(stacked) {
         yval = y * sums[j];
+        sums[j] -= sorted[i].values[j];
       } else {
         yval = y * sorted[i].values[j];
       }
       c.lineTo(xval, voffset + ploth - yval);
-      sums[j] -= sorted[i].values[j];
     }
     if(fill) {
       c.lineTo(xval, voffset+ploth);
@@ -524,7 +525,9 @@ function draw_plot(stacked, sequential, fill) {
     }
 /*    var yblk = voffset + ploth - yval; */
     c.fillStyle = colors[i%colors.length];
-    c.fillText(sorted[i].name, plotw+rpad, yblk);
+    var s = sorted[i].name;
+    s += " (" + sorted[i].values[sorted[i].values.length-1] + ")";
+    c.fillText(s, plotw+rpad, yblk);
     used[yblk] = 1;
   }
 
@@ -564,7 +567,11 @@ function draw_plot(stacked, sequential, fill) {
     c.lineTo(v+1, voffset+ploth+ticwidth);
     c.stroke();
     var d = new Date(t*1000);
-    c.fillText(d.toLocaleDateString(), v+1, voffset+ploth+2*vlabelbuf);
+    var s = (d.getUTCDate()+1) + "." + (d.getUTCMonth()+1);
+    c.fillText(s, v+1, voffset+ploth+vlabelbuf+5);
+    if(d.getUTCMonth() == 0) {
+      c.fillText(d.getUTCFullYear(), v+1, voffset+ploth+2*vlabelbuf+5);
+    }
   }
 
   /* vertical axis */
@@ -579,6 +586,17 @@ function draw_plot(stacked, sequential, fill) {
     }
     c.stroke();
   }
+
+  /* title */
+  c.fillStyle = "#000000";
+  var sd = new Date(starttime*1000);
+  var ed = new Date(now*1000);
+  var s = (sd.getUTCDate()+1) + "." + (sd.getUTCMonth()+1) + "." + sd.getUTCFullYear();
+  s += " to ";
+  s += (ed.getUTCDate()+1) + "." + (ed.getUTCMonth()+1) + "." + ed.getUTCFullYear();
+  c.fillText(s, 10, 30);
+  c.font = '20px sans-serif';
+  c.fillText('Stations Running WeeWX', 10, 18);
 }
 
 function sort_by_name(a,b) {
@@ -598,7 +616,7 @@ function sort_by_count(a,b) {
 }
   </script>
 </head>
-<body onload='draw_plot($stacked,$sequential,$fill);'>
+<body onload='draw_plot($plotw,$ploth,$stacked,$sequential,$fill);'>
 <canvas id='history_canvas'></canvas>
 <br/>
 EoB2
