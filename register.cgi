@@ -616,7 +616,7 @@ function sort_by_count(a,b) {
 }
   </script>
 </head>
-<body onload='draw_plot($plotw,$ploth,$stacked,$sequential,$fill);'>
+<body onload='draw_plot($width,$height,$stacked,$sequential,$fill);'>
 <canvas id='history_canvas'></canvas>
 <br/>
 EoB2
