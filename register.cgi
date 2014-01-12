@@ -567,7 +567,7 @@ function draw_plot(width, height, stacked, sequential, fill) {
     c.lineTo(v+1, voffset+ploth+ticwidth);
     c.stroke();
     var d = new Date(t*1000);
-    var s = (d.getUTCDate()+1) + "." + (d.getUTCMonth()+1);
+    var s = d.getUTCDate() + "." + (d.getUTCMonth()+1);
     c.fillText(s, v+1, voffset+ploth+vlabelbuf+5);
     if(d.getUTCMonth() == 0) {
       c.fillText(d.getUTCFullYear(), v+1, voffset+ploth+2*vlabelbuf+5);
@@ -591,9 +591,9 @@ function draw_plot(width, height, stacked, sequential, fill) {
   c.fillStyle = "#000000";
   var sd = new Date(starttime*1000);
   var ed = new Date(now*1000);
-  var s = (sd.getUTCDate()+1) + "." + (sd.getUTCMonth()+1) + "." + sd.getUTCFullYear();
+  var s = sd.getUTCDate() + "." + (sd.getUTCMonth()+1) + "." + sd.getUTCFullYear();
   s += " to ";
-  s += (ed.getUTCDate()+1) + "." + (ed.getUTCMonth()+1) + "." + ed.getUTCFullYear();
+  s += ed.getUTCDate() + "." + (ed.getUTCMonth()+1) + "." + ed.getUTCFullYear();
   c.fillText(s, 10, 30);
   c.font = '20px sans-serif';
   c.fillText('Stations Running WeeWX', 10, 18);
