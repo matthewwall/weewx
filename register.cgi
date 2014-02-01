@@ -569,7 +569,7 @@ function draw_plot(width, height, stacked, sequential, fill) {
     var d = new Date(t*1000);
     var s = d.getUTCDate() + "." + (d.getUTCMonth()+1);
     c.fillText(s, v+1, voffset+ploth+vlabelbuf+5);
-    if(d.getUTCMonth() == 0) {
+    if(d.getUTCMonth() == 0 && d.getUTCDate() < 8) {
       c.fillText(d.getUTCFullYear(), v+1, voffset+ploth+2*vlabelbuf+5);
     }
   }
