@@ -64,6 +64,8 @@ if($RMETHOD eq 'GET' || $RMETHOD eq 'POST') {
         &runcmd('save counts', $savecntapp);
     } elsif($rqpairs{action} eq 'history') {
         &history(%rqpairs);
+    } elsif($rqpairs{action} eq 'summary') {
+        &summary(%rqpairs);
     } else {
         &handleregistration(%rqpairs);
     }
@@ -225,7 +227,7 @@ sub registerstation {
             $msg .= '; ' if $msg ne q();
             $msg .= $m;
         }
-        return (-1, $msg, \%rec);
+        return ('FAIL', $msg, \%rec);
     }
 
     my $rval = eval "{ require DBI; }"; ## no critic (ProhibitStringyEval)
@@ -313,23 +315,128 @@ sub writereply {
     &writefooter($tstr);
 }
 
+sub get_summary_data {
+    use DBI;
+    my @platform_info;
+    my @python_info;
+    my @weewx_info;
+    my @station_info;
+
+    my $dbh = DBI->connect("dbi:SQLite:$db", q(), q(), {RaiseError => 0});
+    if (!$dbh) {
+        return "cannot connect to database: $DBI::errstr";
+    }
+
+    my $sth = $dbh->prepare("select station_type,station_model from stations group by station_model");
+    if (!$sth) {
+        return "cannot prepare select statement: $DBI::errstr";
+    }
+    $sth->execute();
+    $sth->bind_columns(\my($st,$sm));
+    while($sth->fetch()) {
+        next if($st eq q() || $sm eq q());
+        push @station_info, "$st,$sm";
+    }
+    $sth->finish();
+    undef $sth;
+
+    $sth = $dbh->prepare("select weewx_info from stations group by weewx_info");
+    if (!$sth) {
+        return "cannot prepare select statement: $DBI::errstr";
+    }
+    $sth->execute();
+    $sth->bind_columns(\my($x));
+    while($sth->fetch()) {
+        next if($x eq q());
+        push @weewx_info, $x;
+    }
+    $sth->finish();
+    undef $sth;
+
+    $sth = $dbh->prepare("select python_info from stations group by python_info");
+    if (!$sth) {
+        return "cannot prepare select statement: $DBI::errstr";
+    }
+    $sth->execute();
+    $sth->bind_columns(\my($x));
+    while($sth->fetch()) {
+        next if($x eq q());
+        push @python_info, $x;
+    }
+    $sth->finish();
+    undef $sth;
+
+    $sth = $dbh->prepare("select platform_info from stations group by platform_info");
+    if (!$sth) {
+        return "cannot prepare select statement: $DBI::errstr";
+    }
+    $sth->execute();
+    $sth->bind_columns(\my($x));
+    while($sth->fetch()) {
+        next if($x eq q());
+        push @platform_info, $x;
+    }
+    $sth->finish();
+    undef $sth;
+
+    $dbh->disconnect();
+    undef $dbh;
+
+    return (q(), \@platform_info, \@python_info, \@weewx_info, \@station_info);
+}
+
+sub summary {
+    my(%rqpairs) = @_;
+
+    my($errmsg, $plref, $pyref, $wref, $sref) = get_summary_data();
+    if($errmsg ne q()) {
+        &writereply('Database Failure', 'FAIL', $errmsg);
+        return
+    }
+
+    my @platforms = @$plref;
+    my @pythons = @$pyref;
+    my @weewxs = @$wref;
+    my @stations = @$sref;
+
+    my $tstr = &getformatteddate();
+    &writecontenttype();
+    &writedoctype();
+    &writehead('summary');
+    print STDOUT "<body>\n";
+    &dump_data('weewx', @weewxs);
+    &dump_data('python', @pythons);
+    &dump_data('stations', @stations);
+    &dump_data('platforms', @platforms);
+
+    &writefooter($tstr);
+}
+
+sub dump_data {
+    my($title, @data) = @_;
+
+    print STDOUT "<div>\n";
+    print STDOUT "<h2>$title</h2>\n";
+    foreach my $x (@data) {
+        print STDOUT "$x<br/>\n";
+    }
+    print STDOUT "</div>\n";
+}
+
 sub get_history_data {
     use DBI;
     my @times;
     my @counts;
     my @stypes;
 
-    my $errmsg = q();
     my $dbh = DBI->connect("dbi:SQLite:$histdb", q(), q(), {RaiseError => 0});
     if (!$dbh) {
-        $errmsg = "cannot connect to database: $DBI::errstr";
-        return \@times, \@counts, \@stypes;
+        return "cannot connect to database: $DBI::errstr";
     }
 
     my $sth = $dbh->prepare("select station_type from history group by station_type");
     if (!$sth) {
-        $errmsg = "cannot prepare select statement: $DBI::errstr";
-        return \@times, \@counts, \@stypes;
+        return "cannot prepare select statement: $DBI::errstr";
     }
     $sth->execute();
     $sth->bind_columns(\my($st));
@@ -341,8 +448,7 @@ sub get_history_data {
 
     $sth = $dbh->prepare("select datetime from history group by datetime order by datetime asc");
     if (!$sth) {
-        $errmsg = "cannot prepare select statement: $DBI::errstr";
-        return \@times, \@counts, \@stypes;
+        return "cannot prepare select statement: $DBI::errstr";
     }
     $sth->execute();
     $sth->bind_columns(\my($ts));
@@ -359,8 +465,7 @@ sub get_history_data {
 	}
         my $sth = $dbh->prepare("select station_type,active,stale from history where datetime=$t");
         if (!$sth) {
-            $errmsg = "cannot prepare select statement: $DBI::errstr";
-            return \@times, \@counts, \@stypes;
+            return "cannot prepare select statement: $DBI::errstr";
         }
         $sth->execute();
         $sth->bind_columns(\my($st,$active,$stale));
@@ -375,13 +480,18 @@ sub get_history_data {
     $dbh->disconnect();
     undef $dbh;
 
-    return \@times, \@counts, \@stypes;
+    return q(), \@times, \@counts, \@stypes;
 }
 
 sub history {
     my(%rqpairs) = @_;
 
-    my($tref, $cref, $sref) = get_history_data();
+    my($errmsg, $tref, $cref, $sref) = get_history_data();
+    if($errmsg ne q()) {
+        &writereply('Database Failure', 'FAIL', $errmsg);
+        return
+    }
+
     my @times = @$tref;
     my @counts = @$cref;
     my @stations = @$sref;
@@ -631,6 +741,40 @@ sub writecontenttype {
     print STDOUT "Content-type: text/html\n\n";
 }
 
+sub writedoctype() {
+    print STDOUT "<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 3.2 Final//EN\">\n";
+}
+
+sub writehead() {
+    my($title,$style,$script) = @_;
+
+    if(! $style ne q()) {
+        $style = "\
+<style>\
+  body {\
+      font-family: Verdana, Arial, Helvetica, sans-serif;\
+      font-size: 0.8em;\
+    color: #000000;\
+  background-color: #ffffff;\
+}\
+  </style>\
+";
+    }
+
+    if($script ne q()) {
+        $script = "<script>\n$script\n</script>\n";
+    }
+
+    print STDOUT <<EoB;
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+  <title>$title</title>
+$style
+$script
+</head>
+EoB
+}
+
 sub writeheader {
     my($title,$head) = @_;
 
@@ -647,10 +791,12 @@ sub writefooter {
     my($mdate) = @_;
 
     if($mdate) {
+        print STDOUT "<p>\n";
         print STDOUT "<small><i>\n";
         print STDOUT "$mdate<br/>\n";
         print STDOUT "$version<br/>\n";
         print STDOUT "</i></small>\n";
+        print STDOUT "</p>\n";
     }
 
     print STDOUT "\n</body>\n</html>\n";
