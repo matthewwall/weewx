@@ -58,6 +58,9 @@ my $max_frequency = 60;
 # maximum number of unique URLs registered from any given IP address
 my $max_urls = 10;
 
+# how far in the past to consider counts
+my $cutoff = time() - 30*24*3600;
+
 # parameters that we recognize
 my @params = qw(station_url description latitude longitude station_type station_model weewx_info python_info platform_info);
 
@@ -80,7 +83,7 @@ if($RMETHOD eq 'GET' || $RMETHOD eq 'POST') {
         &handleregistration(%rqpairs);
     }
 } else {
-    &writereply('Bad Request', 'FAIL', "Unsupported request method '$RMETHOD'.");
+    &writereply('Bad Request','FAIL',"Unsupported request method '$RMETHOD'.");
 }
 
 exit 0;
@@ -165,10 +168,10 @@ sub handleregistration {
 
     my ($status,$msg,$rec) = registerstation(%rqpairs);
     if($status eq 'OK') {
-        &writereply('Registration Complete', 'OK', $msg, $rec, $rqpairs{debug});
+        &writereply('Registration Complete','OK', $msg, $rec, $rqpairs{debug});
         &updatestations();
     } else {
-        &writereply('Registration Failed', 'FAIL', $msg, $rec, $rqpairs{debug});
+        &writereply('Registration Failed','FAIL', $msg, $rec, $rqpairs{debug});
     }
 }
 
@@ -349,10 +352,14 @@ sub writereply {
 
 sub get_summary_data {
     use DBI;
+    my @station_info;
     my @platform_info;
     my @python_info;
     my @weewx_info;
-    my @station_info;
+    my %station_info_cnt;
+    my %platform_info_cnt;
+    my %python_info_cnt;
+    my %weewx_info_cnt;
 
     my $dbh = DBI->connect("dbi:SQLite:$db", q(), q(), {RaiseError => 0});
     if (!$dbh) {
@@ -411,47 +418,113 @@ sub get_summary_data {
     $sth->finish();
     undef $sth;
 
+    $sth = $dbh->prepare("select station_type,station_model,count(station_type) from stations where last_seen > ? group by station_model");
+    if (!$sth) {
+        return "cannot prepare select statement: $DBI::errstr";
+    }
+    $sth->execute($cutoff);
+    $sth->bind_columns(\my($st,$sm,$c));
+    while($sth->fetch()) {
+        next if($st eq q() || $sm eq q());
+        $station_info_cnt{"$st,$sm"} = $c;
+    }
+    $sth->finish();
+    undef $sth;
+
+    $sth = $dbh->prepare("select weewx_info,count(weewx_info) from stations where last_seen > ? group by weewx_info");
+    if (!$sth) {
+        return "cannot prepare select statement: $DBI::errstr";
+    }
+    $sth->execute($cutoff);
+    $sth->bind_columns(\my($x,$y));
+    while($sth->fetch()) {
+        next if($x eq q());
+        $weewx_info_cnt{$x} = $y;
+    }
+    $sth->finish();
+    undef $sth;
+
+    $sth = $dbh->prepare("select python_info,count(python_info) from stations where last_seen > ? group by python_info");
+    if (!$sth) {
+        return "cannot prepare select statement: $DBI::errstr";
+    }
+    $sth->execute($cutoff);
+    $sth->bind_columns(\my($x,$y));
+    while($sth->fetch()) {
+        next if($x eq q());
+        $python_info_cnt{$x} = $y;
+    }
+    $sth->finish();
+    undef $sth;
+
+    $sth = $dbh->prepare("select platform_info,count(platform_info) from stations where last_seen > ? group by platform_info");
+    if (!$sth) {
+        return "cannot prepare select statement: $DBI::errstr";
+    }
+    $sth->execute($cutoff);
+    $sth->bind_columns(\my($x,$y));
+    while($sth->fetch()) {
+        next if($x eq q());
+        $platform_info_cnt{$x} = $y;
+    }
+    $sth->finish();
+    undef $sth;
+
     $dbh->disconnect();
     undef $dbh;
 
-    return (q(), \@platform_info, \@python_info, \@weewx_info, \@station_info);
+    return (q(),
+            \@station_info, \@platform_info, \@python_info, \@weewx_info,
+            \%station_info_cnt, \%platform_info_cnt, \%python_info_cnt, \%weewx_info_cnt
+        );
 }
 
 sub summary {
     my(%rqpairs) = @_;
 
-    my($errmsg, $plref, $pyref, $wref, $sref) = get_summary_data();
+    my($errmsg,
+       $sref, $plref, $pyref, $wref,
+       $sref_cnt, $plref_cnt, $pyref_cnt, $wref_cnt) = get_summary_data();
     if($errmsg ne q()) {
         &writereply('Database Failure', 'FAIL', $errmsg);
         return
     }
-
-    my @platforms = @$plref;
-    my @pythons = @$pyref;
-    my @weewxs = @$wref;
-    my @stations = @$sref;
 
     my $tstr = &getformatteddate();
     &writecontenttype();
     &writedoctype();
     &writehead('summary');
     print STDOUT "<body>\n";
-    &dump_data('weewx', @weewxs);
-    &dump_data('python', @pythons);
-    &dump_data('stations', @stations);
-    &dump_data('platforms', @platforms);
+    my $tstr = &getformatteddate($cutoff);
+    print STDOUT "<p>";
+    print STDOUT "counts since $tstr";
+    print STDOUT "</p>";
+    &dump_data('stations', $sref, $sref_cnt);
+    &dump_data('weewx', $wref, $wref_cnt);
+    &dump_data('python', $pyref, $pyref_cnt);
+    &dump_data('platforms', $plref, $plref_cnt);
 
     &writefooter($tstr);
 }
 
 sub dump_data {
-    my($title, @data) = @_;
+    my($title, $dref, $cref) = @_;
+
+    my @data = @$dref;
 
     print STDOUT "<div>\n";
     print STDOUT "<h2>$title</h2>\n";
+    print STDOUT "<table style='font-size:90%'>\n";
     foreach my $x (@data) {
-        print STDOUT "$x<br/>\n";
+        print STDOUT "<tr>";
+        if($cref) {
+            my $c = $cref->{$x};
+            print STDOUT "<td style='text-align:right'>$c</td>";
+        }
+        print STDOUT "<td style='padding-left:10px'>$x</td>";
+        print STDOUT "</tr>\n";
     }
+    print STDOUT "</table>\n";
     print STDOUT "</div>\n";
 }
 
@@ -835,7 +908,11 @@ sub writefooter {
 }
 
 sub getformatteddate {
-    return strftime $DATE_FORMAT, gmtime time;
+    my($ts) = @_;
+    if(! $ts) {
+        $ts = time;
+    }
+    return strftime $DATE_FORMAT, gmtime $ts;
 }
 
 sub getrequest {
