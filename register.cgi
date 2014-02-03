@@ -27,11 +27,15 @@ my $version = '$Id$';
 
 my $basedir = '/home/content/t/o/m/tomkeffer';
 
+# use this when testing so we avoid the real databases
+#my $TEST = '-test';
+my $TEST = q();
+
 # location of the station database
-my $db = "$basedir/weereg/stations.sdb";
+my $db = "$basedir/weereg/stations${TEST}.sdb";
 
 # location of the history database
-my $histdb = "$basedir/weereg/history.sdb";
+my $histdb = "$basedir/weereg/history${TEST}.sdb";
 
 # location of the html generator
 my $genhtmlapp = "$basedir/html/register/mkstations.pl";
@@ -47,6 +51,12 @@ my $logfile = "$basedir/html/register/register.log";
 
 # format of the date as returned in the html footers
 my $DATE_FORMAT = "%Y.%m.%d %H:%M:%S UTC";
+
+# how often can clients update, in seconds
+my $max_frequency = 60;
+
+# maximum number of unique URLs registered from any given IP address
+my $max_urls = 10;
 
 # parameters that we recognize
 my @params = qw(station_url description latitude longitude station_type station_model weewx_info python_info platform_info);
@@ -164,8 +174,10 @@ sub handleregistration {
 
 # update the stations web page then update the counts database
 sub updatestations() {
-    `$genhtmlapp >> $logfile 2>&1`;
-    `$savecntapp >> $logfile 2>&1`;
+    system("$genhtmlapp >> $logfile 2>&1 &");
+    system("$savecntapp >> $logfile 2>&1 &");
+#    `$genhtmlapp >> $logfile 2>&1`;
+#    `$savecntapp >> $logfile 2>&1`;
 }
 
 # if this is a new station, add an entry to the database.  if an entry already
@@ -221,6 +233,10 @@ sub registerstation {
             $rec{$k} =~ s/'//g;
         }
     }
+# accept only weewx user agent.  this will reject anything before weewx 2.6
+#    if($rec{user_agent} !~ /weewx\//) {
+#        push @msgs, 'unsupported registration protocol';
+#    }
     if($#msgs >= 0) {
         my $msg = q();
         foreach my $m (@msgs) {
@@ -266,6 +282,22 @@ sub registerstation {
             $dbh->disconnect();
             return ('FAIL', $msg, \%rec);
         }
+    }
+
+    # reject obvious attempts to spam the system
+
+    my $last_seen = 0;
+    $last_seen = $dbh->selectrow_array("select max(last_seen) from stations where last_addr=?", undef, ($rec{last_addr}));
+    if($rec{last_seen} - $last_seen < $max_frequency) {
+        $dbh->disconnect();
+        return ('FAIL', 'too many updates attempted', \%rec);
+    }
+
+    my $urlcount = 0;
+    $urlcount = $dbh->selectrow_array("select count(station_url) from (select station_url from stations where last_addr=? group by station_url)", undef, ($rec{last_addr}));
+    if($urlcount > $max_urls) {
+        $dbh->disconnect();
+        return ('FAIL', 'too many station URLs from that address', \%rec);
     }
 
     # if data are different from latest record, save a new record.  otherwise

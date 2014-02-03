@@ -54,6 +54,7 @@ while($ARGV[0]) {
     }
 }
 
+my $tmpfile = "$ofile.$$";
 
 
 # read the template file, cache in memory
@@ -126,7 +127,7 @@ if (-f $db) {
 }
 
 # inject into the template and spit it out
-if(open(OFILE,">$ofile")) {
+if(open(OFILE,">$tmpfile")) {
     foreach my $line (split("\n", $contents)) {
         if($line =~ /^var sites = /) {
             if ($errmsg ne q()) {
@@ -155,9 +156,10 @@ if(open(OFILE,">$ofile")) {
     }
     close(OFILE);
     my $cnt = scalar @records;
+    rename($tmpfile, $ofile);
     logout("processed $cnt stations");
 } else {
-    logerr("cannot write to output file $ofile: $!");
+    logerr("cannot write to output file $tmpfile: $!");
 }
 
 exit 0;
@@ -165,7 +167,7 @@ exit 0;
 
 sub errorpage {
     my ($msg) = @_;
-    if(open(OFILE,">$ofile")) {
+    if(open(OFILE,">$tmpfile")) {
         print OFILE "<html>\n";
         print OFILE "<head>\n";
         print OFILE "  <title>error</title>\n";
@@ -178,8 +180,9 @@ sub errorpage {
         print OFILE "</body>\n";
         print OFILE "</html>\n";
         close(OFILE);
+        rename($tmpfile, $ofile);
     } else {
-        logerr("cannot write to output file $ofile: $!");
+        logerr("cannot write to output file $tmpfile: $!");
     }
 }
 

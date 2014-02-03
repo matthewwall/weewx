@@ -158,8 +158,8 @@ if ($dbh) {
             }
         }
         logout("inserted historical data for $cnt station types");
-    } else {
-        logout("no changes to historical counts");
+#    } else {
+#        logout("no changes to historical counts");
     }
 
     $dbh->disconnect();
