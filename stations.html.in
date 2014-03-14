@@ -81,6 +81,7 @@ var infowindow = new google.maps.InfoWindow({
 var pingdays = 30; /* number of days in ping histogram */
 var backgroundColor = '#ffffff';
 var highlightColor = '#9fcef9';
+var maxTitleLen = 70;
 
 function count_sorter(a,b) {
   if(a == 'total') {
@@ -143,6 +144,9 @@ function initialize_map() {
       title = sites[i].description;
     } else {
       title = sites[i].url;
+    }
+    if(title.length > maxTitleLen) {
+      title = title.substr(0,maxTitleLen).concat('...');
     }
     var pos = new google.maps.LatLng(sites[i].latitude, sites[i].longitude);
     var mkr = new google.maps.Marker({
