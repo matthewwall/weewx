@@ -13,6 +13,7 @@
 use strict;
 use DBI;
 use POSIX;
+use utf8;
 
 my $version = '$Id$';
 
@@ -106,7 +107,6 @@ if (-f $db) {
 		$r{station_type} = $st;
 		$r{last_seen} = $ts;
                 $r{sort_key} = $COLLATOR->getSortKey(trim($desc));
-#                $r{sort_key} = trim($desc);
                 if(!defined($unique{$url}) || $ts>$unique{$url}->{last_seen}) {
                     $unique{$url} = \%r;
                 }
@@ -206,7 +206,7 @@ sub logerr {
 
 # strip any leading whitespace or non-alph characters from beginning
 sub trim {
-    (my $s = $_[0]) =~ s/^[^A-Za-z]+//g;
+    (my $s = $_[0]) =~ s/^[^\p{L}]+//g;
     return $s;
 }
 
