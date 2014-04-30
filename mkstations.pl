@@ -41,6 +41,13 @@ use Unicode::Collate;
 my $keysfile = "allkeys.txt";
 my $COLLATOR = Unicode::Collate->new(table=>$keysfile);
 
+# for now keep a blacklist here.  at some point we might have to put this
+# into a database.
+#
+# stoopid spammers.
+my %blacklist;
+$blacklist{'www.ecuadorrealestateagent.com'} = 1;
+
 while($ARGV[0]) {
     my $arg = shift;
     if ($arg eq '--template') {
@@ -135,8 +142,9 @@ if(open(OFILE,">$tmpfile")) {
             }
             print OFILE "var sites = [\n";
             foreach my $rec (sort sort_func @records) {
+                my $url = check_blacklist($rec->{url});
                 print OFILE "  { description: '$rec->{description}',\n";
-                print OFILE "    url: '$rec->{url}',\n";
+                print OFILE "    url: '$url',\n";
                 print OFILE "    latitude: $rec->{latitude},\n";
                 print OFILE "    longitude: $rec->{longitude},\n";
                 print OFILE "    station: '$rec->{station_type}',\n";
@@ -217,4 +225,16 @@ sub trim {
 
 sub sort_func {
     $a->{sort_key} cmp $b->{sort_key};
+}
+
+# when a spammer submits their url, we block it by redirecting to a example.com
+sub check_blacklist {
+    my($url) = @_;
+    my $m = $url;
+    $m =~ s/http:\/\///;
+    $m =~ s/\/$//;
+    if ($blacklist{$m}) {
+        return "http://example.com";
+    }
+    return $url;
 }
