@@ -43,10 +43,8 @@ my $COLLATOR = Unicode::Collate->new(table=>$keysfile);
 
 # for now keep a blacklist here.  at some point we might have to put this
 # into a database.
-#
-# stoopid spammers.
 my %blacklist;
-$blacklist{'www.ecuadorrealestateagent.com'} = 1;
+# $blacklist{'spammerdomain.com'} = 1;
 
 while($ARGV[0]) {
     my $arg = shift;
@@ -206,6 +204,12 @@ sub logerr {
     print STDERR "$tstr $msg\n";
 }
 
+# strip any leading whitespace or non-alph characters from beginning
+sub trim {
+    (my $s = $_[0]) =~ s/^[^A-Za-z]+//g;
+    return $s;
+}
+
 # strip any leading whitespace or non-alphanumeric characters from beginning,
 # then return lowercase.
 #sub trim {
@@ -214,10 +218,10 @@ sub logerr {
 #}
 
 # strip any leading whitespace from beginning
-sub trim {
-    (my $s = $_[0]) =~ s/^\s+//g;
-    return $s;
-}
+#sub trim {
+#    (my $s = $_[0]) =~ s/^\s+//g;
+#    return $s;
+#}
 
 #sub sort_func {
 #    trim($a->{description}) cmp trim($b->{description});
