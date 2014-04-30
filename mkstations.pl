@@ -47,6 +47,9 @@ my $COLLATOR = Unicode::Collate->new(table=>$keysfile);
 my %blacklist;
 # $blacklist{'spammerdomain.com'} = 1;
 
+my $s_ts = time;
+my $e_ts = $s_ts;
+
 while($ARGV[0]) {
     my $arg = shift;
     if ($arg eq '--template') {
@@ -163,7 +166,9 @@ if(open(OFILE,">$tmpfile")) {
     close(OFILE);
     my $cnt = scalar @records;
     rename($tmpfile, $ofile);
-    logout("processed $cnt stations");
+    $e_ts = time;
+    my $sec = $e_ts - $s_ts;
+    logout("processed $cnt stations in $sec seconds");
 } else {
     logerr("cannot write to output file $tmpfile: $!");
 }
