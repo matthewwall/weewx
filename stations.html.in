@@ -81,7 +81,7 @@
   cursor: cell;
 }
   </style>
-  <script type="text/javascript" src="http://maps.google.com/maps/api/js?sensor=false"></script>
+  <script type="text/javascript" src="http://maps.googleapis.com/maps/api/js?sensor=false"></script>
   <script type="text/javascript">
 var sites = [];
 var map;
@@ -183,6 +183,10 @@ function initialize_map() {
   draw_ping_histogram(pings, maxpings);
 }
 
+function compare(x,y) {
+  return x < y ? -1 : x > y ? 1 : 0;
+}
+
 function populate_station_list(sort_metric, sort_order) {
   // do the sort...
   var indices = [];
@@ -198,42 +202,44 @@ function populate_station_list(sort_metric, sort_order) {
   } else if (sort_metric == 'url') {
     if (sort_order == 'up') {
       indices.sort(function(a,b) {
-        return sites[a].url.toLowerCase() > sites[b].url.toLowerCase(); });
+        return compare(sites[a].url.toLowerCase(), sites[b].url.toLowerCase());
+      });
     } else {
       indices.sort(function(a,b) {
-        return sites[a].url.toLowerCase() < sites[b].url.toLowerCase(); });
+        return compare(sites[b].url.toLowerCase(), sites[a].url.toLowerCase());
+      });
     }
   } else if (sort_metric == 'latitude') {
     if (sort_order == 'up') {
       indices.sort(function(a,b) {
-        return sites[a].latitude > sites[b].latitude; });
+        return compare(sites[a].latitude, sites[b].latitude); });
     } else {
       indices.sort(function(a,b) {
-        return sites[a].latitude < sites[b].latitude; });
+        return compare(sites[b].latitude, sites[a].latitude); });
     }
   } else if (sort_metric == 'longitude') {
     if (sort_order == 'up') {
       indices.sort(function(a,b) {
-        return sites[a].longitude > sites[b].longitude; });
+        return compare(sites[a].longitude, sites[b].longitude); });
     } else {
       indices.sort(function(a,b) {
-        return sites[a].longitude < sites[b].longitude; });
+        return compare(sites[b].longitude, sites[a].longitude); });
     }
   } else if (sort_metric == 'station') {
     if (sort_order == 'up') {
       indices.sort(function(a,b) {
-        return sites[a].station > sites[b].station; });
+        return compare(sites[a].station, sites[b].station); });
     } else {
       indices.sort(function(a,b) {
-        return sites[a].station < sites[b].station; });
+        return compare(sites[b].station, sites[a].station); });
     }
   } else if (sort_metric == 'last_seen') {
     if (sort_order == 'up') {
       indices.sort(function(a,b) {
-        return sites[a].last_seen > sites[b].last_seen; });
+        return compare(sites[a].last_seen, sites[b].last_seen); });
     } else {
       indices.sort(function(a,b) {
-        return sites[a].last_seen < sites[b].last_seen; });
+        return compare(sites[b].last_seen, sites[a].last_seen); });
     }
   }
 
