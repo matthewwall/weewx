@@ -38,17 +38,19 @@
 }
 #station_summary {
   float: right;
+  padding-bottom: 30px;
 }
 #ping_details_container {
   padding-top: 10px;
   padding-bottom: 20px;
 }
-#station_summary_details td {
+#station_types td {
   padding-right: 10px;
 }
 #sites {
   padding-top: 20px;
   padding-right: 20px;
+  padding-bottom: 30px;
 }
 #site_listing table {
   padding-top: 10px;
@@ -180,7 +182,7 @@ function initialize_map() {
 
   populate_station_list('description', 'up');
   populate_station_table(counts);
-  draw_ping_histogram(pings, maxpings);
+  draw_ping_histogram(pings, maxpings, counts['total']);
 }
 
 function compare(x,y) {
@@ -299,7 +301,7 @@ function create_buttons(label, sort_metric) {
 }
 
 function populate_station_table(counts) {
-  var s = document.getElementById('station_summary_details');
+  var s = document.getElementById('station_types');
   var tbl = document.createElement('table');
   var tbdy = document.createElement('tbody');
   var count_keys = new Array(); /* array of station types */
@@ -327,7 +329,7 @@ function populate_station_table(counts) {
   s.appendChild(tbl);
 }
 
-function draw_ping_histogram(pings, maxpings) {
+function draw_ping_histogram(pings, maxpings, total) {
   canvas = document.getElementById('ping_details');
   if(canvas) {
     canvas.width = 180;
@@ -354,6 +356,7 @@ function draw_ping_histogram(pings, maxpings) {
       c.lineTo(i*barwidth, h);
       c.stroke();
     }
+    c.fillText(total, 10, 20);
   }
 }
 
@@ -539,9 +542,10 @@ function get_title(x) {
         <div id='ping_details_container'>
           <canvas id='ping_details'></canvas>
         </div>
-        <strong>Station Summary</strong>
-        <div id='station_summary_details'></div>
+        <div onclick="toggle(this,'station_types')" style='cursor: pointer'>&#x25b6; <strong>Station Types</strong></div>
+        <div id='station_types' style='display:none'></div>
       </div>
+
       <div id='instructions'>
         <strong>How to Add Your Station</strong>
         <div id='instruction_details'>
