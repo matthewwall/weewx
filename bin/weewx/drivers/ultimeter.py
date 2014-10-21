@@ -74,8 +74,8 @@ import syslog
 import time
 
 import weewx
-import weewx.abstractstation
-import weewx.units
+import weecore.abstractstation
+import weecore.units
 import weewx.uwxutils
 import weewx.wxformulas
 
@@ -108,13 +108,13 @@ def logcrt(msg):
 
 def loader(config_dict, engine):
     """Get the altitude, in feet, from the Station section of the dict."""
-    altitude_m = weewx.units.getAltitudeM(config_dict)
+    altitude_m = weecore.units.getAltitudeM(config_dict)
     altitude_vt = (altitude_m, 'meter', 'group_altitude')
-    altitude_ft = weewx.units.convert(altitude_vt, 'foot')[0]
+    altitude_ft = weecore.units.convert(altitude_vt, 'foot')[0]
     station = Ultimeter(altitude=altitude_ft, **config_dict['Ultimeter'])
     return station
 
-class Ultimeter(weewx.abstractstation.AbstractStation):
+class Ultimeter(weecore.abstractstation.AbstractStation):
     '''weewx driver that communicates with a Peet Bros Ultimeter station
 
     port - serial port
@@ -150,7 +150,7 @@ class Ultimeter(weewx.abstractstation.AbstractStation):
             ntries += 1
             try:
                 packet = {'dateTime': int(time.time()+0.5),
-                          'usUnits' : weewx.US }
+                          'usUnits' : weecore.US }
                 # open a new connection to the station for each reading
                 with Station(self.port) as station:
                     bytes = station.get_readings()

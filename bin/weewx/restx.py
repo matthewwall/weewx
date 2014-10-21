@@ -30,7 +30,7 @@ When a new LOOP or record arrives, the controlling object puts it in the queue,
 to be received by the posting object. The controlling object can tell the
 posting object to terminate by putting a 'None' in the queue.
  
-The posting object should inherit from class RESTThread. It monitors the queue
+The posting object should inherit from class weecore.restx.RESTThread. It monitors the queue
 and blocks until a new record arrives.
 
 The base class RESTThread has a lot of functionality, so specializing classes
@@ -72,373 +72,28 @@ from __future__ import with_statement
 import Queue
 import datetime
 import hashlib
-import httplib
 import platform
 import re
 import socket
 import sys
 import syslog
-import threading
 import time
 import urllib
 import urllib2
 
 import weedb
+import weewx
+import weecore.restx
 import weeutil.weeutil
-import weewx.wxengine
-from weeutil.weeutil import to_int, to_float, to_bool, timestamp_to_string, accumulateLeaves
-import weewx.units
+from weeutil.weeutil import to_float, to_bool, accumulateLeaves
+import weecore.units
 
-class FailedPost(IOError):
-    """Raised when a post fails after trying the max number of allowed times"""
-
-class BadLogin(StandardError):
-    """Raised when login information is bad or missing."""
-
-class ConnectError(IOError):
-    """Raised when unable to get a socket connection."""
-    
-class SendError(IOError):
-    """Raised when unable to send through a socket."""
-    
-#==============================================================================
-#                    Abstract base classes
-#==============================================================================
-
-class StdRESTful(weewx.wxengine.StdService):
-    """Abstract base class for RESTful weewx services.
-    
-    Offers a few common bits of functionality."""
-        
-    def shutDown(self):
-        """Shut down any threads"""
-        if hasattr(self, 'loop_queue') and hasattr(self, 'loop_thread'):
-            StdRESTful.shutDown_thread(self.loop_queue, self.loop_thread)
-        if hasattr(self, 'archive_queue') and hasattr(self, 'archive_thread'):
-            StdRESTful.shutDown_thread(self.archive_queue, self.archive_thread)
-
-    @staticmethod
-    def shutDown_thread(q, t):
-        """Function to shut down a thread."""
-        if q and t.isAlive():
-            # Put a None in the queue to signal the thread to shutdown
-            q.put(None)
-            # Wait up to 20 seconds for the thread to exit:
-            t.join(20.0)
-            if t.isAlive():
-                syslog.syslog(syslog.LOG_ERR, "restx: Unable to shut down %s thread" % t.name)
-            else:
-                syslog.syslog(syslog.LOG_DEBUG, "restx: Shut down %s thread." % t.name)
-
-# For backwards compatibility with early v2.6 alphas:
-StdRESTbase = StdRESTful
-
-class RESTThread(threading.Thread):
-    """Abstract base class for RESTful protocol threads.
-    
-    Offers a few bits of common functionality."""
-
-    def __init__(self, queue, protocol_name, database_dict=None,
-                 post_interval=None, max_backlog=sys.maxint, stale=None, 
-                 log_success=True, log_failure=True, 
-                 timeout=10, max_tries=3, retry_wait=5):
-        """Initializer for the class RESTThread
-        Required parameters:
-
-          queue: An instance of Queue.Queue where the records will appear.
-
-          protocol_name: A string holding the name of the protocol.
-          
-        Optional parameters:
-        
-          log_success: If True, log a successful post in the system log.
-          Default is True.
-          
-          log_failure: If True, log an unsuccessful post in the system log.
-          Default is True.
-          
-          max_backlog: How many records are allowed to accumulate in the queue
-          before the queue is trimmed.
-          Default is sys.maxint (essentially, allow any number).
-          
-          max_tries: How many times to try the post before giving up.
-          Default is 3
-          
-          stale: How old a record can be and still considered useful.
-          Default is None (never becomes too old).
-          
-          post_interval: How long to wait between posts.
-          Default is None (post every record).
-          
-          timeout: How long to wait for the server to respond before giving up.
-          Default is 10 seconds.
-
-          retry_wait: How long to wait between retries when failures.
-          Default is 5 seconds.
-          """    
-        # Initialize my superclass:
-        threading.Thread.__init__(self, name=protocol_name)
-        self.setDaemon(True)
-
-        self.queue         = queue
-        self.protocol_name = protocol_name
-        self.database_dict = database_dict
-        self.log_success   = to_bool(log_success)
-        self.log_failure   = to_bool(log_failure)
-        self.max_backlog   = to_int(max_backlog)
-        self.max_tries     = to_int(max_tries)
-        self.stale         = to_int(stale)
-        self.post_interval = to_int(post_interval)
-        self.timeout       = to_int(timeout)
-        self.retry_wait    = to_int(retry_wait)
-        self.lastpost = 0
-
-    def get_record(self, record, archive):
-        """Augment record data with additional data from the archive.
-        Should return results in the same units as the record and the database.
-        
-        This is a general version that works for:
-          - WeatherUnderground
-          - PWSweather
-          - WOW
-          - CWOP
-        It can be overridden and specialized for additional protocols.
-
-        returns: A dictionary of weather values"""
-        
-        _time_ts = record['dateTime']
-        _sod_ts = weeutil.weeutil.startOfDay(_time_ts)
-        
-        # Make a copy of the record, then start adding to it:
-        _datadict = dict(record)
-
-        # If the type 'rain' does not appear in the archive schema, an exception will
-        # be raised. Be prepared to catch it.
-        try:        
-            if not _datadict.has_key('hourRain'):
-                # CWOP says rain should be "rain that fell in the past hour". WU
-                # says it should be "the accumulated rainfall in the past 60 min".
-                # Presumably, this is exclusive of the archive record 60 minutes
-                # before, so the SQL statement is exclusive on the left, inclusive
-                # on the right.
-                _result = archive.getSql("SELECT SUM(rain), MIN(usUnits), MAX(usUnits) FROM archive "
-                                         "WHERE dateTime>? AND dateTime<=?",
-                                         (_time_ts - 3600.0, _time_ts))
-                if _result is not None and _result[0] is not None:
-                    if not _result[1] == _result[2] == record['usUnits']:
-                        raise ValueError("Inconsistent units (%s vs %s vs %s) when querying for hourRain" %
-                                         (_result[1], _result[2], record['usUnits']))
-                    _datadict['hourRain'] = _result[0]
-                else:
-                    _datadict['hourRain'] = None
-    
-            if not _datadict.has_key('rain24'):
-                # Similar issue, except for last 24 hours:
-                _result = archive.getSql("SELECT SUM(rain), MIN(usUnits), MAX(usUnits) FROM archive "
-                                         "WHERE dateTime>? AND dateTime<=?",
-                                         (_time_ts - 24*3600.0, _time_ts))
-                if _result is not None and _result[0] is not None:
-                    if not _result[1] == _result[2] == record['usUnits']:
-                        raise ValueError("Inconsistent units (%s vs %s vs %s) when querying for rain24" %
-                                         (_result[1], _result[2], record['usUnits']))
-                    _datadict['rain24'] = _result[0]
-                else:
-                    _datadict['rain24'] = None
-    
-            if not _datadict.has_key('dayRain'):
-                # NB: The WU considers the archive with time stamp 00:00
-                # (midnight) as (wrongly) belonging to the current day
-                # (instead of the previous day). But, it's their site,
-                # so we'll do it their way.  That means the SELECT statement
-                # is inclusive on both time ends:
-                _result = archive.getSql("SELECT SUM(rain), MIN(usUnits), MAX(usUnits) FROM archive "
-                                         "WHERE dateTime>=? AND dateTime<=?", 
-                                         (_sod_ts, _time_ts))
-                if _result is not None and _result[0] is not None:
-                    if not _result[1] == _result[2] == record['usUnits']:
-                        raise ValueError("Inconsistent units (%s vs %s vs %s) when querying for dayRain" %
-                                         (_result[1], _result[2], record['usUnits']))
-                    _datadict['dayRain'] = _result[0]
-                else:
-                    _datadict['dayRain'] = None
-
-        except weedb.OperationalError:
-            pass
-            
-        return _datadict
-
-    def run(self):
-        """If there is a database specified, open the database, then call
-        run_loop() with the database.  If no database is specified, simply
-        call run_loop()."""
-        
-        # Open up the archive. Use a 'with' statement. This will automatically
-        # close the archive in the case of an exception:
-        if self.database_dict is not None:
-            manager_cls = weeutil.weeutil._get_object(self.manager) if hasattr(self, 'manager') else weewx.archive.Archive 
-            with manager_cls.open(self.database_dict) as _archive:
-                self.run_loop(_archive)
-        else:
-            self.run_loop()
-
-    def run_loop(self, archive=None):
-        """Runs a continuous loop, waiting for records to appear in the queue,
-        then processing them.
-        """
-        
-        while True :
-            while True:
-                # This will block until something appears in the queue:
-                _record = self.queue.get()
-                # A None record is our signal to exit:
-                if _record is None:
-                    return
-                # If packets have backed up in the queue, trim it until it's
-                # no bigger than the max allowed backlog:
-                if self.queue.qsize() <= self.max_backlog:
-                    break
-    
-            if self.skip_this_post(_record['dateTime']):
-                continue
-    
-            try:
-                # Process the record, using whatever method the specializing
-                # class provides
-                self.process_record(_record, archive)
-            except BadLogin, e:
-                syslog.syslog(syslog.LOG_ERR, "restx: %s: bad login; "
-                              "waiting 60 minutes then retrying" % self.protocol_name)
-                time.sleep(3600)
-            except FailedPost, e:
-                if self.log_failure:
-                    _time_str = timestamp_to_string(_record['dateTime'])
-                    syslog.syslog(syslog.LOG_ERR, "restx: %s: Failed to publish record %s: %s" 
-                                  % (self.protocol_name, _time_str, e))
-            except Exception, e:
-                # Some unknown exception occurred. This is probably a serious
-                # problem. Exit.
-                syslog.syslog(syslog.LOG_CRIT, "restx: %s: Unexpected exception of type %s" % 
-                              (self.protocol_name, type(e)))
-                syslog.syslog(syslog.LOG_CRIT, "restx: %s: Thread exiting. Reason: %s" % 
-                              (self.protocol_name, e))
-                return
-            else:
-                if self.log_success:
-                    _time_str = timestamp_to_string(_record['dateTime'])
-                    syslog.syslog(syslog.LOG_INFO, "restx: %s: Published record %s" % 
-                                  (self.protocol_name, _time_str))
-
-    def process_record(self, record, archive):
-        """Default version of process_record.
-        
-        This version uses HTTP GETs to do the post, which should work for many
-        protocols, but it can always be replaced by a specializing class."""
-        
-        # Get the full record by querying the database ...
-        _full_record = self.get_record(record, archive)
-        # ... convert to US if necessary ...
-        _us_record = weewx.units.to_US(_full_record)
-        # ... format the URL, using the relevant protocol ...
-        _url = self.format_url(_us_record)
-        # ... convert to a Request object ...
-        _request = urllib2.Request(_url)
-        _request.add_header("User-Agent", "weewx/%s" % weewx.__version__)
-        # ... then, finally, post it
-        self.post_with_retries(_request)
-
-    def post_with_retries(self, request):
-        """Post a request, retrying if necessary
-        
-        Attempts to post the request object up to max_tries times. 
-        Catches a set of generic exceptions.
-        
-        request: An instance of urllib2.Request
-        """
-
-        # Retry up to max_tries times:
-        for _count in range(self.max_tries):
-            try:
-                # Do a single post. The function post_request() can be
-                # specialized by a RESTful service to catch any unusual
-                # exceptions.
-                _response = self.post_request(request)
-                if _response.code == 200:
-                    # No exception thrown and we got a good response code, but
-                    # we're still not done.  Some protocols encode a bad
-                    # station ID or password in the return message.
-                    # Give any interested protocols a chance to examine it.
-                    # This must also be inside the try block because some
-                    # implementations defer hitting the socket until the
-                    # response is used.
-                    self.check_response(_response)
-                    # Does not seem to be an error. We're done.
-                    return
-                else:
-                    # We got a bad response code. Log it and try again.
-                    syslog.syslog(syslog.LOG_DEBUG, "restx: %s: Failed upload attempt %d: Code %s" % 
-                                  (self.protocol_name, _count+1, _response.code))
-            except (urllib2.URLError, socket.error, httplib.BadStatusLine, httplib.IncompleteRead), e:
-                # An exception was thrown. Log it and go around for another try
-                syslog.syslog(syslog.LOG_DEBUG, "restx: %s: Failed upload attempt %d: Exception %s" % 
-                              (self.protocol_name, _count+1, e))
-            time.sleep(self.retry_wait)
-        else:
-            # This is executed only if the loop terminates normally, meaning
-            # the upload failed max_tries times. Raise an exception. Caller
-            # can decide what to do with it.
-            raise FailedPost("Failed upload after %d tries" % (self.max_tries,))
-
-    def post_request(self, request):
-        """Post a request object. This version does not catch any HTTP
-        exceptions.
-        
-        Specializing versions can can catch any unusual exceptions that might
-        get raised by their protocol.
-        """
-        try:
-            # Python 2.5 and earlier do not have a "timeout" parameter.
-            # Including one could cause a TypeError exception. Be prepared
-            # to catch it.
-            _response = urllib2.urlopen(request, timeout=self.timeout)
-        except TypeError:
-            # Must be Python 2.5 or early. Use a simple, unadorned request
-            _response = urllib2.urlopen(request)
-        return _response
-
-    def check_response(self, response):
-        """Check the response from a HTTP post. This version does nothing."""
-        pass
-    
-    def skip_this_post(self, time_ts):
-        """Check whether the post is current"""
-        # Don't post if this record is too old
-        if self.stale is not None:
-            _how_old = time.time() - time_ts
-            if _how_old > self.stale:
-                syslog.syslog(syslog.LOG_DEBUG, "restx: %s: record %s is stale (%d > %d)." %
-                              (self.protocol_name, timestamp_to_string(time_ts), 
-                               _how_old, self.stale))
-                return True
- 
-        if self.post_interval is not None:
-            # We don't want to post more often than the post interval
-            _how_long = time_ts - self.lastpost
-            if _how_long < self.post_interval:
-                syslog.syslog(syslog.LOG_DEBUG, 
-                              "restx: %s: wait interval (%d < %d) has not passed for record %s" % 
-                              (self.protocol_name,
-                               _how_long, self.post_interval,
-                               timestamp_to_string(time_ts)))
-                return True
-    
-        self.lastpost = time_ts
-        return False
 
 #==============================================================================
 #                    Ambient protocols
 #==============================================================================
 
-class StdWunderground(StdRESTful):
+class StdWunderground(weecore.restx.StdRESTful):
     """Specialized version of the Ambient protocol for the Weather Underground.
     """
     
@@ -464,7 +119,7 @@ class StdWunderground(StdRESTful):
             return
 
         # Get the database dictionary. Throw away the manager. We don't need it.
-        _, _database_dict = weewx.archive.prep_database(config_dict, 'wx_binding')
+        _, _database_dict = weecore.archive.prep_database(config_dict, 'wx_binding')
         
         # The default is to not do an archive post if a rapidfire post
         # has been specified, but this can be overridden
@@ -479,7 +134,7 @@ class StdWunderground(StdRESTful):
                                                 protocol_name="Wunderground-PWS",
                                                 **_ambient_dict) 
             self.archive_thread.start()
-            self.bind(weewx.NEW_ARCHIVE_RECORD, self.new_archive_record)
+            self.bind(weecore.NEW_ARCHIVE_RECORD, self.new_archive_record)
             syslog.syslog(syslog.LOG_INFO, "restx: Wunderground-PWS: "
                           "Data for station %s will be posted" % _ambient_dict['station'])
 
@@ -495,7 +150,7 @@ class StdWunderground(StdRESTful):
                                                  protocol_name="Wunderground-RF",
                                                  **_ambient_dict) 
             self.loop_thread.start()
-            self.bind(weewx.NEW_LOOP_PACKET, self.new_loop_packet)
+            self.bind(weecore.NEW_LOOP_PACKET, self.new_loop_packet)
             syslog.syslog(syslog.LOG_INFO, 
                           "restx: Wunderground-RF: Data for station %s will be posted" %
                           _ambient_dict['station'])
@@ -508,7 +163,7 @@ class StdWunderground(StdRESTful):
         """Puts new archive records in the archive queue"""
         self.archive_queue.put(event.record)
                 
-class StdPWSWeather(StdRESTful):
+class StdPWSWeather(weecore.restx.StdRESTful):
     """Specialized version of the Ambient protocol for PWSWeather"""
     
     # The URL used by PWSWeather:
@@ -533,7 +188,7 @@ class StdPWSWeather(StdRESTful):
             return
 
         # Get the database dictionary. Throw away the manager. We don't need it.
-        _, _database_dict = weewx.archive.prep_database(config_dict, 'wx_binding')
+        _, _database_dict = weecore.archive.prep_database(config_dict, 'wx_binding')
         
         _ambient_dict.setdefault('server_url', StdPWSWeather.archive_url)
         self.archive_queue = Queue.Queue()
@@ -541,7 +196,7 @@ class StdPWSWeather(StdRESTful):
                                             protocol_name="PWSWeather",
                                             **_ambient_dict)
         self.archive_thread.start()
-        self.bind(weewx.NEW_ARCHIVE_RECORD, self.new_archive_record)
+        self.bind(weecore.NEW_ARCHIVE_RECORD, self.new_archive_record)
         syslog.syslog(syslog.LOG_INFO, "restx: PWSWeather: Data for station %s will be posted" % 
                       _ambient_dict['station'])
 
@@ -551,7 +206,7 @@ class StdPWSWeather(StdRESTful):
 # For backwards compatibility with early alpha versions:
 StdPWSweather = StdPWSWeather
 
-class StdWOW(StdRESTful):
+class StdWOW(weecore.restx.StdRESTful):
 
     """Upload using the UK Met Office's WOW protocol. 
     
@@ -580,7 +235,7 @@ class StdWOW(StdRESTful):
             return
 
         # Get the database dictionary. Throw away the manager. We don't need it.
-        _, _database_dict = weewx.archive.prep_database(config_dict, 'wx_binding')
+        _, _database_dict = weecore.archive.prep_database(config_dict, 'wx_binding')
         
         _ambient_dict.setdefault('server_url', StdWOW.archive_url)
         self.archive_queue = Queue.Queue()
@@ -588,14 +243,14 @@ class StdWOW(StdRESTful):
                                         protocol_name="WOW",
                                         **_ambient_dict)
         self.archive_thread.start()
-        self.bind(weewx.NEW_ARCHIVE_RECORD, self.new_archive_record)
+        self.bind(weecore.NEW_ARCHIVE_RECORD, self.new_archive_record)
         syslog.syslog(syslog.LOG_INFO, "restx: WOW: Data for station %s will be posted" % 
                       _ambient_dict['station'])
         
     def new_archive_record(self, event):
         self.archive_queue.put(event.record)
 
-class AmbientThread(RESTThread):
+class AmbientThread(weecore.restx.RESTThread):
     """Concrete class for threads posting from the archive queue,
        using the Ambient PWS protocol."""
     
@@ -684,8 +339,8 @@ class AmbientThread(RESTThread):
     def format_url(self, record):
         """Return an URL for posting using the Ambient protocol."""
         
-        if weewx.debug:
-            assert(record['usUnits'] == weewx.US)
+        if weecore.debug:
+            assert(record['usUnits'] == weecore.US)
     
         _liststr = ["action=updateraw", 
                     "ID=%s" % self.station,
@@ -719,7 +374,7 @@ class AmbientThread(RESTThread):
             # PWSweather signals with 'ERROR', WU with 'INVALID':
             if line.startswith('ERROR') or line.startswith('INVALID'):
                 # Bad login. No reason to retry. Raise an exception.
-                raise BadLogin(line)
+                raise weecore.restx.BadLogin(line)
         
 class AmbientLoopThread(AmbientThread):
     """Version used for the Rapidfire protocol."""
@@ -787,7 +442,7 @@ class WOWThread(AmbientThread):
         except urllib2.HTTPError, e:
             # WOW signals a bad login with a HTML Error 400 or 403 code:
             if e.code == 400 or e.code == 403:
-                raise BadLogin(e)
+                raise weecore.restx.BadLogin(e)
             else:
                 raise
         else:
@@ -797,7 +452,7 @@ class WOWThread(AmbientThread):
 #                    CWOP
 #==============================================================================
 
-class StdCWOP(StdRESTful):
+class StdCWOP(weecore.restx.StdRESTful):
     """Weewx service for posting using the CWOP protocol.
     
     Manages a separate thread CWOPThread"""
@@ -831,7 +486,7 @@ class StdCWOP(StdRESTful):
             return
 
         # Get the database dictionary. Throw away the manager. We don't need it.
-        _, _database_dict = weewx.archive.prep_database(config_dict, 'wx_binding')
+        _, _database_dict = weecore.archive.prep_database(config_dict, 'wx_binding')
 
         _cwop_dict.setdefault('latitude',  self.engine.stn_info.latitude_f)
         _cwop_dict.setdefault('longitude', self.engine.stn_info.longitude_f)
@@ -840,14 +495,14 @@ class StdCWOP(StdRESTful):
         self.archive_thread = CWOPThread(self.archive_queue, _database_dict,
                                          **_cwop_dict)
         self.archive_thread.start()
-        self.bind(weewx.NEW_ARCHIVE_RECORD, self.new_archive_record)
+        self.bind(weecore.NEW_ARCHIVE_RECORD, self.new_archive_record)
         syslog.syslog(syslog.LOG_INFO, "restx: CWOP: Data for station %s will be posted" % 
                       _cwop_dict['station'])
 
     def new_archive_record(self, event):
         self.archive_queue.put(event.record)
 
-class CWOPThread(RESTThread):
+class CWOPThread(weecore.restx.RESTThread):
     """Concrete class for threads posting from the archive queue,
     using the CWOP protocol."""
 
@@ -932,7 +587,7 @@ class CWOPThread(RESTThread):
         # Get the full record by querying the database ...
         _full_record = self.get_record(record, archive)
         # ... convert to US if necessary ...
-        _us_record = weewx.units.to_US(_full_record)
+        _us_record = weecore.units.to_US(_full_record)
         # ... get the login and packet strings...
         _login = self.get_login_string()
         _tnc_packet = self.get_tnc_packet(_us_record)
@@ -982,7 +637,7 @@ class CWOPThread(RESTThread):
         else:
             # While everything else in the CWOP protocol is in US Customary,
             # they want the barometer in millibars.
-            _baro_vt = weewx.units.convert((_baro, 'inHg', 'group_pressure'),
+            _baro_vt = weecore.units.convert((_baro, 'inHg', 'group_pressure'),
                                            'mbar')
             _baro_str = "b%05d" % (_baro_vt[0] * 10.0)
 
@@ -1039,15 +694,15 @@ class CWOPThread(RESTThread):
                         
                     finally:
                         _sock.close()
-                except ConnectError, e:
+                except weecore.restx.ConnectError, e:
                     syslog.syslog(syslog.LOG_DEBUG, "restx: %s: Attempt #%d to %s:%d. Connection error: %s" %
                                   (self.protocol_name, _count+1, _server, _port, e))
-                except SendError, e:
+                except weecore.restx.SendError, e:
                     syslog.syslog(syslog.LOG_DEBUG, "restx: %s: Attempt #%d to %s:%d. Socket send error: %s" %
                                   (self.protocol_name, _count+1, _server, _port, e))
         
         # If we get here, the loop terminated normally, meaning we failed all tries
-        raise FailedPost("Tried %d servers %d times each" % (len(self.server_list), self.max_tries))
+        raise weecore.restx.FailedPost("Tried %d servers %d times each" % (len(self.server_list), self.max_tries))
 
     def _get_connect(self, server, port):
         """Get a socket connection to a specific server and port."""
@@ -1061,7 +716,7 @@ class CWOPThread(RESTThread):
                 _sock.close()
             except:
                 pass
-            raise ConnectError(e)
+            raise weecore.restx.ConnectError(e)
         
         return _sock
 
@@ -1072,7 +727,7 @@ class CWOPThread(RESTThread):
             sock.send(msg)
         except IOError, e:
             # Unsuccessful. Log it and go around again for another try
-            raise SendError("Packet %s; Error %s" % (dbg_msg, e))
+            raise weecore.restx.SendError("Packet %s; Error %s" % (dbg_msg, e))
         else:
             # Success. Look for response from the server.
             try:
@@ -1087,7 +742,7 @@ class CWOPThread(RESTThread):
 #                    Station Registry
 #==============================================================================
 
-class StdStationRegistry(StdRESTful):
+class StdStationRegistry(weecore.restx.StdRESTful):
     """Class for phoning home to register a weewx station.
 
     To enable this module, add the following to weewx.conf:
@@ -1147,14 +802,14 @@ class StdStationRegistry(StdRESTful):
         self.archive_thread = StationRegistryThread(self.archive_queue,
                                                     **_registry_dict)
         self.archive_thread.start()
-        self.bind(weewx.NEW_ARCHIVE_RECORD, self.new_archive_record)
+        self.bind(weecore.NEW_ARCHIVE_RECORD, self.new_archive_record)
         syslog.syslog(syslog.LOG_INFO, "restx: StationRegistry: "
                       "Station will be registered.")
 
     def new_archive_record(self, event):
         self.archive_queue.put(event.record)
         
-class StationRegistryThread(RESTThread):
+class StationRegistryThread(weecore.restx.RESTThread):
     """Concrete threaded class for posting to the weewx station registry."""
     
     def __init__(self, queue, station_url, latitude, longitude,
@@ -1245,7 +900,7 @@ class StationRegistryThread(RESTThread):
         _record['python_info']   = platform.python_version()
         _record['platform_info'] = platform.platform()
         _record['weewx_info']    = weewx.__version__
-        _record['usUnits']       = weewx.US
+        _record['usUnits']       = weecore.US
         
         return _record
         
@@ -1277,13 +932,13 @@ class StationRegistryThread(RESTThread):
         for line in response:
             # the server replies to a bad post with a line starting with "FAIL"
             if line.startswith('FAIL'):
-                raise FailedPost(line)
+                raise weecore.restx.FailedPost(line)
 
 #==============================================================================
 # AWEKAS
 #==============================================================================
 
-class StdAWEKAS(StdRESTful):
+class StdAWEKAS(weecore.restx.StdRESTful):
     """Upload data to AWEKAS - Automatisches WEtterKArten System
     http://www.awekas.at
 
@@ -1376,12 +1031,12 @@ class StdAWEKAS(StdRESTful):
         site_dict.setdefault('language', 'de')
 
         # Get the database dictionary. Throw away the manager. We don't need it.
-        _, site_dict['database_dict'] = weewx.archive.prep_database(config_dict, 'wx_binding')
+        _, site_dict['database_dict'] = weecore.archive.prep_database(config_dict, 'wx_binding')
 
         self.archive_queue = Queue.Queue()
         self.archive_thread = AWEKASThread(self.archive_queue, **site_dict)
         self.archive_thread.start()
-        self.bind(weewx.NEW_ARCHIVE_RECORD, self.new_archive_record)
+        self.bind(weecore.NEW_ARCHIVE_RECORD, self.new_archive_record)
         syslog.syslog(syslog.LOG_INFO, "restx: AWEKAS: "
                       "Data will be uploaded for user %s" %
                       site_dict['username'])
@@ -1392,7 +1047,7 @@ class StdAWEKAS(StdRESTful):
 # For compatibility with some early alpha versions:
 AWEKAS = StdAWEKAS
 
-class AWEKASThread(RESTThread):
+class AWEKASThread(weecore.restx.RESTThread):
 
     _SERVER_URL = 'http://data.awekas.at/eingabe_pruefung.php'
     _FORMATS = {'barometer'   : '%.3f',
@@ -1513,14 +1168,14 @@ class AWEKASThread(RESTThread):
     def check_response(self, response):
         for line in response:
             if line.startswith("Benutzer/Passwort Fehler"):
-                raise BadLogin(line)
+                raise weecore.restx.BadLogin(line)
             elif not line.startswith('OK'):
-                raise FailedPost("server returned '%s'" % line)
+                raise weecore.restx.FailedPost("server returned '%s'" % line)
 
     def get_url(self, in_record):
 
         # Convert to units required by awekas
-        record = weewx.units.to_METRIC(in_record)
+        record = weecore.units.to_METRIC(in_record)
         if record.has_key('dayRain') and record['dayRain'] is not None:
             record['dayRain'] = record['dayRain'] * 10
         if record.has_key('rainRate') and record['rainRate'] is not None:

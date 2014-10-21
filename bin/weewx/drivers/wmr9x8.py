@@ -25,9 +25,8 @@ import syslog
 
 import serial
 
-import weeutil.weeutil
-import weewx.abstractstation
-import weewx.units
+import weecore.abstractstation
+import weecore.units
 import weewx.wxformulas
 from math import exp
 
@@ -62,7 +61,7 @@ def wm918_registerpackettype(typecode, size):
     return wrap
 
 def loader(config_dict, engine):
-    altitude_m = weewx.units.getAltitudeM(config_dict)
+    altitude_m = weecore.units.getAltitudeM(config_dict)
     return WMR9x8(altitude=altitude_m, **config_dict['WMR9x8'])
 
 class SerialWrapper(object):
@@ -104,7 +103,7 @@ class SerialWrapper(object):
 #                           Class WMR9x8
 #===============================================================================
 
-class WMR9x8(weewx.abstractstation.AbstractStation):
+class WMR9x8(weecore.abstractstation.AbstractStation):
     """Class that represents a connection to a Oregon Scientific WMR9x8 console.
 
     The connection to the console will be open after initialization"""
@@ -242,7 +241,7 @@ class WMR9x8(weewx.abstractstation.AbstractStation):
             'windSpeed'         : ((avg10th/10.0) + avg1 + (avg10*10)) * 3.6,
             'windDir'           : dir1 + (dir10 * 10) + (dir100 * 100),
             'dateTime'          : int(time.time() + 0.5),
-            'usUnits'           : weewx.METRIC
+            'usUnits'           : weecore.METRIC
         }
         # Sometimes the station emits a wind gust that is less than the average wind.
         # Ignore it if this is the case.
@@ -275,7 +274,7 @@ class WMR9x8(weewx.abstractstation.AbstractStation):
             'dayRain'           : (yest1 + (yest10 * 10) + (yest100 * 100) + (yest1000 * 1000))/10.0,
             'totalRain'         : (tot10th/10.0 + tot1 + 10.0*tot10 + 100.0*tot100 + 1000.0*tot1000)/10.0,
             'dateTime'          : int(time.time() + 0.5),
-            'usUnits'           : weewx.METRIC
+            'usUnits'           : weecore.METRIC
         }
         # Because the WMR does not offer anything like bucket tips, we must
         # calculate it by looking for the change in total rain. Of course, this
@@ -293,7 +292,7 @@ class WMR9x8(weewx.abstractstation.AbstractStation):
         battery  = bool(status & 0x04)
         _record = {
             'dateTime' : int(time.time() + 0.5),
-            'usUnits'  : weewx.METRIC,
+            'usUnits'  : weecore.METRIC,
             'batteryStatusTH%d' % chan : battery
         }
 
@@ -324,7 +323,7 @@ class WMR9x8(weewx.abstractstation.AbstractStation):
         battery  = bool(status & 0x04)
         _record = {
             'dateTime'             : int(time.time() + 0.5),
-            'usUnits'              : weewx.METRIC,
+            'usUnits'              : weecore.METRIC,
             'outTempBatteryStatus' : battery,
             'outHumidity'          : hum1 + (hum10 * 10)
         }
@@ -356,7 +355,7 @@ class WMR9x8(weewx.abstractstation.AbstractStation):
         battery  = bool(status & 0x04)
 
         _record = {'dateTime' : int(time.time() + 0.5),
-                   'usUnits'  : weewx.METRIC,
+                   'usUnits'  : weecore.METRIC,
                    'batteryStatusT%d' % chan : battery}
 
         temp = temp10th / 10.0 + temp1 + 10.0 * temp10 + 100.0 * (temp100etc & 0x03)
@@ -403,7 +402,7 @@ class WMR9x8(weewx.abstractstation.AbstractStation):
             'pressure'    : sp,
             'altimeter'   : sa,
             'dateTime'    : int(time.time() + 0.5),
-            'usUnits'     : weewx.METRIC
+            'usUnits'     : weecore.METRIC
         }
 
         return _record
@@ -443,7 +442,7 @@ class WMR9x8(weewx.abstractstation.AbstractStation):
             'pressure'    : sp,
             'altimeter'   : sa,
             'dateTime'    : int(time.time() + 0.5),
-            'usUnits'     : weewx.METRIC
+            'usUnits'     : weecore.METRIC
         }
 
         return _record
@@ -497,7 +496,7 @@ class WMR9x8(weewx.abstractstation.AbstractStation):
             'windGust'          : ((gust10th/10.0) + gust1 + (gust10*10)) * 3.6,
             'windGustDir'       : dir1 + (dir10 * 10) + (dir100 * 100),
             'dateTime'          : int(time.time() + 0.5),
-            'usUnits'           : weewx.METRIC
+            'usUnits'           : weecore.METRIC
         }
         # Sometimes the station emits a wind gust that is less than the average wind.
         # Ignore it if this is the case.
@@ -517,7 +516,7 @@ class WMR9x8(weewx.abstractstation.AbstractStation):
             'yesterdayRain'     : (yest1 + (yest10 * 10) + (yest100 * 100) + (yest1000 * 1000))/10.0,
             'totalRain'         : (tot1 + (tot10 * 10) + (tot100 * 100) + (tot1000 * 1000))/10.0,
             'dateTime'          : int(time.time() + 0.5),
-            'usUnits'           : weewx.METRIC
+            'usUnits'           : weecore.METRIC
         }
         # Because the WM does not offer anything like bucket tips, we must
         # calculate it by looking for the change in total rain. Of course, this
@@ -539,7 +538,7 @@ class WMR9x8(weewx.abstractstation.AbstractStation):
             'outHumidity'       : humout,
             'inHumidity'        : hum,
             'dateTime'          : int(time.time() + 0.5),
-            'usUnits'           : weewx.METRIC
+            'usUnits'           : weecore.METRIC
         }
         self.last_outHumidity = _record['outHumidity']    # save the humidity for the heat index and apparent temp calculation
         return _record
@@ -579,7 +578,7 @@ class WMR9x8(weewx.abstractstation.AbstractStation):
             _record['apparentTemp'] = None
 
         _record ['dateTime'] = int(time.time() + 0.5)
-        _record ['usUnits'] = weewx.METRIC
+        _record ['usUnits'] = weecore.METRIC
         return _record
 
     @wm918_registerpackettype(typecode=0xaf, size=31)
@@ -600,7 +599,7 @@ class WMR9x8(weewx.abstractstation.AbstractStation):
             #'outDewpoint' : dewout,
             #'dewpoint'    : dewout,
             'dateTime'    : int(time.time() + 0.5),
-            'usUnits'     : weewx.METRIC
+            'usUnits'     : weecore.METRIC
         }
 
         return _record

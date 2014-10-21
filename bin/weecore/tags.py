@@ -8,7 +8,7 @@
 """Classes for implementing the weewx tag 'code' codes."""
 
 import weeutil.weeutil
-import weewx.units
+import weecore.units
 
 #===============================================================================
 #                    Class DBFactory
@@ -37,7 +37,7 @@ class FactoryBinder(object):
     syntax such as $db($binding='wx_binding').month.rain.sum in the Cheetah templates.""" 
 
     def __init__(self, dbfactory, endtime_ts,
-                 formatter=weewx.units.Formatter(), converter=weewx.units.Converter(), **option_dict):
+                 formatter=weecore.units.Formatter(), converter=weecore.units.Converter(), **option_dict):
         
         self.dbfactory   = dbfactory
         self.endtime_ts  = endtime_ts
@@ -72,18 +72,18 @@ class DatabaseBinder(object):
     """
 
     def __init__(self, opendb, endtime_ts,
-                 formatter=weewx.units.Formatter(), converter=weewx.units.Converter(), **option_dict):
+                 formatter=weecore.units.Formatter(), converter=weecore.units.Converter(), **option_dict):
         """Initialize an instance of DatabaseBinder.
         
         opendb: A Database from which the aggregates are to be extracted.
 
         endtime_ts: The time the aggregates are to be current to.
 
-        formatter: An instance of weewx.units.Formatter() holding the formatting
+        formatter: An instance of weecore.units.Formatter() holding the formatting
         information to be used. [Optional. If not given, the default
         Formatter will be used.]
 
-        converter: An instance of weewx.units.Converter() holding the target unit
+        converter: An instance of weecore.units.Converter() holding the target unit
         information to be used. [Optional. If not given, the default
         Converter will be used.]
 
@@ -102,7 +102,7 @@ class DatabaseBinder(object):
     def current(self):
         """Return a ValueDict for the 'current" record."""
         vtd = self._get_valuetupledict(self.endtime_ts)
-        vd = weewx.units.ValueDict(vtd, context='current',
+        vd = weecore.units.ValueDict(vtd, context='current',
                                    formatter=self.formatter,
                                    converter=self.converter)
         return vd
@@ -110,8 +110,13 @@ class DatabaseBinder(object):
     @property
     def trend(self):
         """Return a ValueDict for the 'trend'. """
-        time_delta = int(self.option_dict.get('time_delta', 10800))
-        time_grace = int(self.option_dict.get('time_grace', 300))
+        try:
+            time_delta = int(self.option_dict['skin_dict']['Units']['Trend']['time_delta'])
+            time_grace = int(self.option_dict['skin_dict']['Units']['Trend'].get('time_grace', 300))
+        except KeyError:
+            time_delta = 10800  # 3 hours
+            time_grace = 300    # 5 minutes
+
         now_vtd  = self._get_valuetupledict(self.endtime_ts, time_grace)
         then_vtd = self._get_valuetupledict(self.endtime_ts - time_delta, time_grace)
         return TrendObj(then_vtd, now_vtd, time_delta, self.formatter, self.converter)
@@ -122,7 +127,7 @@ class DatabaseBinder(object):
                           'day', self.formatter, self.converter, **self.option_dict)
     @property
     def week(self):
-        week_start = self.option_dict.get('week_start', 6)
+        week_start = self.option_dict['stn_info'].week_start
         return TimeBinder(weeutil.weeutil.archiveWeekSpan(self.endtime_ts, week_start), self.opendb,
                           'week', self.formatter, self.converter, **self.option_dict)
     @property
@@ -135,7 +140,8 @@ class DatabaseBinder(object):
                           'year', self.formatter, self.converter, **self.option_dict)
     @property
     def rainyear(self):
-        return TimeBinder(weeutil.weeutil.archiveRainYearSpan(self.endtime_ts, self.option_dict['rain_year_start']), self.opendb,
+        rain_year_start = self.option_dict['stn_info'].rain_year_start
+        return TimeBinder(weeutil.weeutil.archiveRainYearSpan(self.endtime_ts, rain_year_start), self.opendb,
                           'rainyear',  self.formatter, self.converter, **self.option_dict)
 
     def _get_valuetupledict(self, time_ts, time_grace=None):
@@ -145,7 +151,7 @@ class DatabaseBinder(object):
         # Get the record...
         record_dict = self.opendb.getRecord(time_ts, max_delta=time_grace)
         # ... convert to a dictionary with ValueTuples as values:
-        record_dict_vtd = weewx.units.ValueTupleDict(record_dict) if record_dict is not None else None
+        record_dict_vtd = weecore.units.ValueTupleDict(record_dict) if record_dict is not None else None
         return record_dict_vtd
             
 #===============================================================================
@@ -170,8 +176,8 @@ class TimeBinder(object):
            # Print maximum temperature for each month in the year:
            print monthStats.outTemp.max
     """
-    def __init__(self, timespan, opendb, context='current', formatter=weewx.units.Formatter(),
-                 converter=weewx.units.Converter(), **option_dict):
+    def __init__(self, timespan, opendb, context='current', formatter=weecore.units.Formatter(),
+                 converter=weecore.units.Converter(), **option_dict):
         """Initialize an instance of TimeBinder.
 
         timespan: An instance of weeutil.Timespan with the time span
@@ -182,11 +188,11 @@ class TimeBinder(object):
         context: A tag name for the timespan. This is something like 'current', 'day',
         'week', etc. This is used to find an appropriate label, if necessary.
 
-        formatter: An instance of weewx.units.Formatter() holding the formatting
+        formatter: An instance of weecore.units.Formatter() holding the formatting
         information to be used. [Optional. If not given, the default
         Formatter will be used.]
 
-        converter: An instance of weewx.units.Converter() holding the target unit
+        converter: An instance of weecore.units.Converter() holding the target unit
         information to be used. [Optional. If not given, the default
         Converter will be used.]
 
@@ -229,8 +235,8 @@ class TimeBinder(object):
     # Return the start time of the time period as a ValueHelper
     @property
     def dateTime(self):
-        val = weewx.units.ValueTuple(self.timespan.start, 'unix_epoch', 'group_time')
-        return weewx.units.ValueHelper(val, self.context, self.formatter, self.converter)
+        val = weecore.units.ValueTuple(self.timespan.start, 'unix_epoch', 'group_time')
+        return weecore.units.ValueHelper(val, self.context, self.formatter, self.converter)
 
     def __getattr__(self, obs_type):
         """Return a helper object that binds the database, a time period,
@@ -251,10 +257,10 @@ class TimeBinder(object):
             max_delta = self.option_dict.get('max_delta')
             record_dict = self.opendb.getRecord(self.timespan.stop, max_delta)
             if record_dict is not None:
-                vt = weewx.units.as_value_tuple(record_dict, obs_type)
+                vt = weecore.units.as_value_tuple(record_dict, obs_type)
             else:
                 vt = (None, None, None)
-            vh = weewx.units.ValueHelper(vt, context='current', formatter=self.formatter, converter=self.converter)
+            vh = weecore.units.ValueHelper(vt, context='current', formatter=self.formatter, converter=self.converter)
             return vh
 
         # For other contexts, an aggregation is possible. Return an ObservationBinder: if an attribute is
@@ -275,7 +281,7 @@ class ObservationBinder(object):
     """
 
     def __init__(self, obs_type, timespan, opendb, context,
-                 formatter=weewx.units.Formatter(), converter=weewx.units.Converter(), **option_dict):
+                 formatter=weecore.units.Formatter(), converter=weecore.units.Converter(), **option_dict):
         """ Initialize an instance of ObservationBinder
 
         obs_type: A string with the stats type (e.g., 'outTemp') for which the query is
@@ -289,11 +295,11 @@ class ObservationBinder(object):
         context: A tag name for the timespan. This is something like 'current', 'day',
         'week', etc. This is used to find an appropriate label, if necessary.
 
-        formatter: An instance of weewx.units.Formatter() holding the formatting
+        formatter: An instance of weecore.units.Formatter() holding the formatting
         information to be used. [Optional. If not given, the default
         Formatter will be used.]
 
-        converter: An instance of weewx.units.Converter() holding the target unit
+        converter: An instance of weecore.units.Converter() holding the target unit
         information to be used. [Optional. If not given, the default
         Converter will be used.]
 
@@ -349,7 +355,7 @@ class ObservationBinder(object):
     def _do_query(self, aggregateType, val=None):
         """Run a query against the databases, using the given aggregation type."""
         result = self.opendb.getAggregate(self.timespan, self.obs_type, aggregateType, val=val, **self.option_dict)
-        return weewx.units.ValueHelper(result, self.context, self.formatter, self.converter)
+        return weecore.units.ValueHelper(result, self.context, self.formatter, self.converter)
         
 #===============================================================================
 #                             Class TrendObj
@@ -376,7 +382,7 @@ class TrendObj(object):
         self.now_vtd  = now_vtd
         self.formatter = formatter
         self.converter = converter
-        self.time_delta = weewx.units.ValueHelper((time_delta, 'second', 'group_elapsed'),
+        self.time_delta = weecore.units.ValueHelper((time_delta, 'second', 'group_elapsed'),
                                                   'current',
                                                   formatter,
                                                   converter)
@@ -405,6 +411,6 @@ class TrendObj(object):
         # Return the results as a ValueHelper. Use the formatting and labeling
         # options from the current time record. The user can always override
         # these.
-        return weewx.units.ValueHelper(trend, 'current',
+        return weecore.units.ValueHelper(trend, 'current',
                                        self.formatter,
                                        self.converter)

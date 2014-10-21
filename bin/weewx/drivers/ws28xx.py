@@ -942,8 +942,8 @@ import time
 import traceback
 import usb
 
-import weewx.abstractstation
-import weewx.units
+import weecore.abstractstation
+import weecore.units
 import weewx.wxformulas
 import weeutil.weeutil
 
@@ -1034,11 +1034,11 @@ def index_to_addr(idx):
     return 18 * idx + 416
 
 def loader(config_dict, engine):
-    altitude_m = weewx.units.getAltitudeM(config_dict)
+    altitude_m = weecore.units.getAltitudeM(config_dict)
     station = WS28xx(altitude=altitude_m, **config_dict['WS28xx'])
     return station
 
-class WS28xx(weewx.abstractstation.AbstractStation):
+class WS28xx(weecore.abstractstation.AbstractStation):
     """Driver for LaCrosse WS28xx stations."""
 
     max_records = 1797
@@ -1146,7 +1146,7 @@ class WS28xx(weewx.abstractstation.AbstractStation):
 
             # if no new weather data, return an empty packet
             if packet is None:
-                packet = { 'usUnits': weewx.METRIC, 'dateTime': now }
+                packet = { 'usUnits': weecore.METRIC, 'dateTime': now }
                 # if no new weather data for awhile, log it
                 if self._last_obs_ts is None or \
                         now - self._last_obs_ts > self._nodata_interval:
@@ -1206,7 +1206,7 @@ class WS28xx(weewx.abstractstation.AbstractStation):
         last_ts = None
         for r in records:
             if last_ts is not None:
-                r['usUnits'] = weewx.METRIC
+                r['usUnits'] = weecore.METRIC
                 r['interval'] = (r['dateTime'] - last_ts) / 60
                 self.augment_data(r)
                 yield r
@@ -1287,7 +1287,7 @@ class WS28xx(weewx.abstractstation.AbstractStation):
 
         # add elements required for weewx LOOP packets
         packet = {}
-        packet['usUnits'] = weewx.METRIC
+        packet['usUnits'] = weecore.METRIC
         packet['dateTime'] = ts
 
         # data from the station sensors
@@ -3931,7 +3931,7 @@ class CCommunicationService(object):
                 self.doRFCommunication()
         except Exception, e:
             logerr('exception in doRF: %s' % e)
-            if weewx.debug:
+            if weecore.debug:
                 log_traceback(dst=syslog.LOG_DEBUG)
             self.running = False
             raise

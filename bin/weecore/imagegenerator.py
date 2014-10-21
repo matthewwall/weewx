@@ -19,15 +19,15 @@ import os.path
 import weeplot.genplot
 import weeplot.utilities
 import weeutil.weeutil
-import weewx.reportengine
-import weewx.units
+import weecore.reportengine
+import weecore.units
 from weeutil.weeutil import to_bool, to_int
 
 #===============================================================================
 #                    Class ImageGenerator
 #===============================================================================
 
-class ImageGenerator(weewx.reportengine.ReportGenerator):
+class ImageGenerator(weecore.reportengine.ReportGenerator):
     """Class for managing the image generator."""
 
     def run(self):
@@ -41,9 +41,9 @@ class ImageGenerator(weewx.reportengine.ReportGenerator):
         
         self.image_dict = self.skin_dict['ImageGenerator']
         self.title_dict = self.skin_dict.get('Labels', {}).get('Generic', {})
-        self.converter  = weewx.units.Converter.fromSkinDict(self.skin_dict)
-        self.formatter  = weewx.units.Formatter.fromSkinDict(self.skin_dict)
-        self.unit_helper= weewx.units.UnitInfoHelper(self.formatter, self.converter)
+        self.converter  = weecore.units.Converter.fromSkinDict(self.skin_dict)
+        self.formatter  = weecore.units.Formatter.fromSkinDict(self.skin_dict)
+        self.unit_helper= weecore.units.UnitInfoHelper(self.formatter, self.converter)
         
     def genImages(self, gen_ts):
         """Generate the images.
@@ -144,7 +144,7 @@ class ImageGenerator(weewx.reportengine.ReportGenerator):
                             archive.getSqlVectors(var_type, minstamp, maxstamp, 
                                                   aggregate_interval, aggregate_type)
 
-                    if weewx.debug:
+                    if weecore.debug:
                         assert(len(start_vec_t) == len(stop_vec_t))
 
                     # Do any necessary unit conversions:

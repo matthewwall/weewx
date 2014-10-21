@@ -250,11 +250,11 @@ import struct
 import tty
 
 import weeutil.weeutil
-import weewx.abstractstation
-import weewx.units
+import weecore.abstractstation
+import weecore.units
 import weewx.wxformulas
 
-DRIVER_VERSION = '0.19'
+DRIVER_VERSION = '0.20'
 DEFAULT_PORT = '/dev/ttyUSB0'
 
 def logmsg(dst, msg):
@@ -273,12 +273,12 @@ def logerr(msg):
     logmsg(syslog.LOG_ERR, msg)
 
 def loader(config_dict, engine):
-    altitude_m = weewx.units.getAltitudeM(config_dict)
+    altitude_m = weecore.units.getAltitudeM(config_dict)
     station = WS23xx(altitude=altitude_m, config_dict=config_dict,
                      **config_dict['WS23xx'])
     return station
 
-class WS23xx(weewx.abstractstation.AbstractStation):
+class WS23xx(weecore.abstractstation.AbstractStation):
     """Driver for LaCrosse WS23xx stations."""
     
     def __init__(self, **stn_dict) :
@@ -364,8 +364,8 @@ class WS23xx(weewx.abstractstation.AbstractStation):
         while ntries < self.max_tries:
             ntries += 1
             try:
-                s = Station(self.port)
-                data = s.get_raw_data(SENSOR_IDS)
+                with Station(self.port) as s:
+                    data = s.get_raw_data(SENSOR_IDS)
                 packet = data_to_packet(data, int(time.time() + 0.5),
                                         altitude=self.altitude,
                                         pressure_offset=self.pressure_offset,
@@ -394,8 +394,6 @@ class WS23xx(weewx.abstractstation.AbstractStation):
                        (ntries, self.max_tries, e))
                 logdbg("Waiting %d seconds before retry" % self.retry_wait)
                 time.sleep(self.retry_wait)
-            finally:
-                s.close()
         else:
             msg = "Max retries (%d) exceeded for LOOP data" % self.max_tries
             logerr(msg)
@@ -476,7 +474,7 @@ def data_to_packet(data, ts, altitude=0, pressure_offset=None, last_rain=None,
     """
 
     packet = {}
-    packet['usUnits'] = weewx.METRIC
+    packet['usUnits'] = weecore.METRIC
     packet['dateTime'] = ts
     packet['inTemp'] = data['it']
     packet['inHumidity'] = data['ih']
@@ -1135,10 +1133,10 @@ class Ws2300(object):
     #
     # Debug logging of serial IO.
     #
-    def log(self, str):
+    def log(self, s):
         if not DEBUG_SERIAL:
             return
-        self.log_buffer[-1] = self.log_buffer[-1] + str
+        self.log_buffer[-1] = self.log_buffer[-1] + s
     def log_enter(self, action):
         if not DEBUG_SERIAL:
             return
@@ -1186,12 +1184,12 @@ def num2bin(number, nybble_count):
 # temperature, or wind speed.
 #
 class Conversion(object):
-    description	= None # Description of the units.
+    description    = None # Description of the units.
     nybble_count = None # Number of nybbles used on the WS2300
     units = None # Units name (eg hPa).
     #
     # Initialise ourselves.
-    #  units	 - text description of the units.
+    #  units     - text description of the units.
     #  nybble_count- Size of stored value on ws2300 in nybbles
     #  description - Description of the units
     #
@@ -1214,7 +1212,7 @@ class Conversion(object):
     #
     # Convert the string produced by "str()" back to the value.
     #
-    def parse(self, str): raise NotImplementedError()
+    def parse(self, s): raise NotImplementedError()
     #
     # Transform data into something that can be written.  Returns:
     #  (new_bytes, ws2300.write_safe_args, ...)
@@ -1242,16 +1240,16 @@ class BinConversion(Conversion):
     def __init__(self, units, nybble_count, scale, description, mult=1, check=None):
         Conversion.__init__(self, units, nybble_count, description)
         self.mult    = mult
-        self.scale	= scale
-        self.units	= units
+        self.scale    = scale
+        self.units    = units
     def binary2value(self, data):
         return (bin2num(data) * self.mult) / 10.0**self.scale
     def value2binary(self, value):
         return num2bin(int(value * 10**self.scale) // self.mult, self.nybble_count)
     def str(self, value):
         return "%.*f" % (self.scale, value)
-    def parse(self, str):
-        return float(str)
+    def parse(self, s):
+        return float(s)
 
 #
 # For values stored as BCD numbers.
@@ -1272,8 +1270,8 @@ class BcdConversion(Conversion):
         return num2bcd(int(value * 10**self.scale) - self.offset, self.nybble_count)
     def str(self, value):
         return "%.*f" % (self.scale, value)
-    def parse(self, str):
-        return float(str)
+    def parse(self, s):
+        return float(s)
 
 #
 # For pressures.  Add a garbage check.
@@ -1298,8 +1296,8 @@ class ConversionDate(Conversion):
         self.format = format
     def str(self, value):
         return time.strftime(self.format, time.localtime(value))
-    def parse(self, str):
-        return time.mktime(time.strptime(str, self.format))
+    def parse(self, s):
+        return time.mktime(time.strptime(s, self.format))
 
 class DateConversion(ConversionDate):
     def __init__(self):
@@ -1401,8 +1399,8 @@ class TimeConversion(ConversionDate):
         tm = time.localtime(value)
         dt = tm[5] + tm[4]*100 + tm[3]*10000
         return num2bcd(dt, self.nybble_count)
-    def parse(self, str):
-        return time.mktime((0,0,0) + time.strptime(str, self.format)[3:]) + time.timezone
+    def parse(self, s):
+        return time.mktime((0,0,0) + time.strptime(s, self.format)[3:]) + time.timezone
 
 class WindDirectionConversion(Conversion):
     def __init__(self):
@@ -1413,8 +1411,8 @@ class WindDirectionConversion(Conversion):
         return (int((value + 11.25) / 22.5),)
     def str(self, value):
         return "%g" % value
-    def parse(self, str):
-        return float(str)
+    def parse(self, s):
+        return float(s)
 
 class WindVelocityConversion(Conversion):
     def __init__(self):
@@ -1425,8 +1423,8 @@ class WindVelocityConversion(Conversion):
         return num2bin(value[0]*10, 3) + num2bin((value[1] + 11.5) / 22.5, 1)
     def str(self, value):
         return "%.1f,%g" % value
-    def parse(self, str):
-        return tuple([float(x) for x in str.split(",")])
+    def parse(self, s):
+        return tuple([float(x) for x in s.split(",")])
 
 # The ws2300 1.8 implementation does not calculate wind speed correctly -
 # it uses bcd2num instead of bin2num.  This conversion object uses bin2num
@@ -1443,8 +1441,8 @@ class WindConversion(Conversion):
         return (speed, direction, overflow, validity)
     def str(self, value):
         return "%.1f,%g,%s,%s" % value
-    def parse(self, str):
-        return tuple([float(x) for x in str.split(",")])
+    def parse(self, s):
+        return tuple([float(x) for x in s.split(",")])
 
 #
 # For non-numerical values.
@@ -1466,11 +1464,11 @@ class TextConversion(Conversion):
         if result != None:
             return result
         return "unknown-%d" % value
-    def parse(self, str):
-        result = [c[0] for c in self.constants.items() if c[1] == str]
+    def parse(self, s):
+        result = [c[0] for c in self.constants.items() if c[1] == s]
         if result:
             return result[0]
-        return int(value[8:],16)
+        return None
 
 #
 # For values that are represented by one bit.
@@ -1488,8 +1486,8 @@ class ConversionBit(Conversion):
         return (value << self.bit,)
     def str(self, value):
         return self.desc[value]
-    def parse(self, str):
-        return [c[0] for c in self.desc.items() if c[1] == str][0]
+    def parse(self, s):
+        return [c[0] for c in self.desc.items() if c[1] == s][0]
 
 class BitConversion(ConversionBit):
     def __init__(self, bit, desc):
@@ -1547,25 +1545,25 @@ class HistoryConversion(Conversion):
         rain = None
         wind_speed = None
         wind_direction = None
-    def __str__(self):
-        return "%4.1fc %2d%% %4.1fc %2d%% %6.1fhPa %6.1fmm %2dm/s %5g" % (
-            self.temp_indoor, self.humidity_indoor,
-            self.temp_outdoor, self.humidity_outdoor, 
-            self.pressure_absolute, self.rain,
-            self.wind_speed, self.wind_direction)
-    def parse(cls, str):
-        rec = cls()
-        toks = [tok.rstrip(string.ascii_letters + "%/") for tok in str.split()]
-        rec.temp_indoor = float(toks[0])
-        rec.humidity_indoor = int(toks[1])
-        rec.temp_outdoor = float(toks[2])
-        rec.humidity_outdoor = int(toks[3])
-        rec.pressure_absolute = float(toks[4])
-        rec.rain = float(toks[5])
-        rec.wind_speed = int(toks[6])
-        rec.wind_direction = int((float(toks[7]) + 11.25) / 22.5) % 16
-        return rec
-    parse = classmethod(parse)
+        def __str__(self):
+            return "%4.1fc %2d%% %4.1fc %2d%% %6.1fhPa %6.1fmm %2dm/s %5g" % (
+                self.temp_indoor, self.humidity_indoor,
+                self.temp_outdoor, self.humidity_outdoor, 
+                self.pressure_absolute, self.rain,
+                self.wind_speed, self.wind_direction)
+        def parse(cls, s):
+            rec = cls()
+            toks = [tok.rstrip(string.ascii_letters + "%/") for tok in s.split()]
+            rec.temp_indoor = float(toks[0])
+            rec.humidity_indoor = int(toks[1])
+            rec.temp_outdoor = float(toks[2])
+            rec.humidity_outdoor = int(toks[3])
+            rec.pressure_absolute = float(toks[4])
+            rec.rain = float(toks[5])
+            rec.wind_speed = int(toks[6])
+            rec.wind_direction = int((float(toks[7]) + 11.25) / 22.5) % 16
+            return rec
+        parse = classmethod(parse)
     def __init__(self):
         Conversion.__init__(self, "", 19, "history")
     def binary2value(self, data):
@@ -1603,8 +1601,8 @@ class HistoryConversion(Conversion):
     #
     # Convert the string produced by "str()" back to the value.
     #
-    def parse(self, str):
-        return self.__class__.HistoryRecord.parse(str)
+    def parse(self, s):
+        return self.__class__.HistoryRecord.parse(s)
 
 #
 # Various conversions we know about.
@@ -1690,8 +1688,8 @@ class HexConversion(Conversion):
         return value
     def str(self, value):
         return ",".join(["%x" % nybble for nybble in value])
-    def parse(self, str):
-        toks = str.replace(","," ").split()
+    def parse(self, s):
+        toks = s.replace(","," ").split()
         for i in range(len(toks)):
             s = list(toks[i])
             s.reverse()
@@ -1721,7 +1719,7 @@ class HistoryMeasure(Measure):
     LAST_POINTER = None         # int,    Pointer to last record
     RECORD_COUNT = None         # int,    Number of records in use
     recno = None                # int,    The record number this represents
-    conv			= conv_hist
+    conv            = conv_hist
     def __init__(self, recno):
         self.recno = recno
     def set_constants(cls, ws2300):
@@ -1818,68 +1816,68 @@ Measure(0x02b, None,   conv_ala0, "rain 24h alarm active alias")
 Measure(0x02c, None,   conv_ala2, "wind direction alarm active alias")
 Measure(0x02c, None,   conv_ala2, "wind speed max alarm active alias")
 Measure(0x02c, None,   conv_ala2, "wind speed min alarm active alias")
-Measure(0x200, "st",   conv_time, "station set time",		reset="ct")
+Measure(0x200, "st",   conv_time, "station set time",        reset="ct")
 Measure(0x23b, "sw",   conv_dtme, "station current date time")
-Measure(0x24d, "sd",   conv_date, "station set date",		reset="cd")
+Measure(0x24d, "sd",   conv_date, "station set date",        reset="cd")
 Measure(0x266, "lc",   conv_lcon, "lcd contrast (ro)")
 Measure(0x26b, "for",  conv_fore, "forecast")
 Measure(0x26c, "ten",  conv_tend, "tendency")
 Measure(0x346, "it",   conv_temp, "in temp")
-Measure(0x34b, "itl",  conv_temp, "in temp min",		reset="it")
-Measure(0x350, "ith",  conv_temp, "in temp max",		reset="it")
-Measure(0x354, "itlw", conv_stmp, "in temp min when",		reset="sw")
-Measure(0x35e, "ithw", conv_stmp, "in temp max when",		reset="sw")
+Measure(0x34b, "itl",  conv_temp, "in temp min",        reset="it")
+Measure(0x350, "ith",  conv_temp, "in temp max",        reset="it")
+Measure(0x354, "itlw", conv_stmp, "in temp min when",        reset="sw")
+Measure(0x35e, "ithw", conv_stmp, "in temp max when",        reset="sw")
 Measure(0x369, "itla", conv_temp, "in temp min alarm")
 Measure(0x36e, "itha", conv_temp, "in temp max alarm")
 Measure(0x373, "ot",   conv_temp, "out temp")
-Measure(0x378, "otl",  conv_temp, "out temp min",		reset="ot")
-Measure(0x37d, "oth",  conv_temp, "out temp max",		reset="ot")
-Measure(0x381, "otlw", conv_stmp, "out temp min when",		reset="sw")
-Measure(0x38b, "othw", conv_stmp, "out temp max when",		reset="sw")
+Measure(0x378, "otl",  conv_temp, "out temp min",        reset="ot")
+Measure(0x37d, "oth",  conv_temp, "out temp max",        reset="ot")
+Measure(0x381, "otlw", conv_stmp, "out temp min when",        reset="sw")
+Measure(0x38b, "othw", conv_stmp, "out temp max when",        reset="sw")
 Measure(0x396, "otla", conv_temp, "out temp min alarm")
 Measure(0x39b, "otha", conv_temp, "out temp max alarm")
 Measure(0x3a0, "wc",   conv_temp, "wind chill")
-Measure(0x3a5, "wcl",  conv_temp, "wind chill min",		reset="wc")
-Measure(0x3aa, "wch",  conv_temp, "wind chill max",		reset="wc")
-Measure(0x3ae, "wclw", conv_stmp, "wind chill min when",	reset="sw")
-Measure(0x3b8, "wchw", conv_stmp, "wind chill max when",	reset="sw")
+Measure(0x3a5, "wcl",  conv_temp, "wind chill min",        reset="wc")
+Measure(0x3aa, "wch",  conv_temp, "wind chill max",        reset="wc")
+Measure(0x3ae, "wclw", conv_stmp, "wind chill min when",    reset="sw")
+Measure(0x3b8, "wchw", conv_stmp, "wind chill max when",    reset="sw")
 Measure(0x3c3, "wcla", conv_temp, "wind chill min alarm")
 Measure(0x3c8, "wcha", conv_temp, "wind chill max alarm")
 Measure(0x3ce, "dp",   conv_temp, "dew point")
-Measure(0x3d3, "dpl",  conv_temp, "dew point min",		reset="dp")
-Measure(0x3d8, "dph",  conv_temp, "dew point max",		reset="dp")
-Measure(0x3dc, "dplw", conv_stmp, "dew point min when",		reset="sw")
-Measure(0x3e6, "dphw", conv_stmp, "dew point max when",		reset="sw")
+Measure(0x3d3, "dpl",  conv_temp, "dew point min",        reset="dp")
+Measure(0x3d8, "dph",  conv_temp, "dew point max",        reset="dp")
+Measure(0x3dc, "dplw", conv_stmp, "dew point min when",        reset="sw")
+Measure(0x3e6, "dphw", conv_stmp, "dew point max when",        reset="sw")
 Measure(0x3f1, "dpla", conv_temp, "dew point min alarm")
 Measure(0x3f6, "dpha", conv_temp, "dew point max alarm")
 Measure(0x3fb, "ih",   conv_humi, "in humidity")
-Measure(0x3fd, "ihl",  conv_humi, "in humidity min",		reset="ih")
-Measure(0x3ff, "ihh",  conv_humi, "in humidity max",		reset="ih")
-Measure(0x401, "ihlw", conv_stmp, "in humidity min when",	reset="sw")
-Measure(0x40b, "ihhw", conv_stmp, "in humidity max when",	reset="sw")
+Measure(0x3fd, "ihl",  conv_humi, "in humidity min",        reset="ih")
+Measure(0x3ff, "ihh",  conv_humi, "in humidity max",        reset="ih")
+Measure(0x401, "ihlw", conv_stmp, "in humidity min when",    reset="sw")
+Measure(0x40b, "ihhw", conv_stmp, "in humidity max when",    reset="sw")
 Measure(0x415, "ihla", conv_humi, "in humidity min alarm")
 Measure(0x417, "ihha", conv_humi, "in humidity max alarm")
 Measure(0x419, "oh",   conv_humi, "out humidity")
-Measure(0x41b, "ohl",  conv_humi, "out humidity min",		reset="oh")
-Measure(0x41d, "ohh",  conv_humi, "out humidity max",		reset="oh")
-Measure(0x41f, "ohlw", conv_stmp, "out humidity min when",	reset="sw")
-Measure(0x429, "ohhw", conv_stmp, "out humidity max when",	reset="sw")
+Measure(0x41b, "ohl",  conv_humi, "out humidity min",        reset="oh")
+Measure(0x41d, "ohh",  conv_humi, "out humidity max",        reset="oh")
+Measure(0x41f, "ohlw", conv_stmp, "out humidity min when",    reset="sw")
+Measure(0x429, "ohhw", conv_stmp, "out humidity max when",    reset="sw")
 Measure(0x433, "ohla", conv_humi, "out humidity min alarm")
 Measure(0x435, "ohha", conv_humi, "out humidity max alarm")
 Measure(0x497, "rd",   conv_rain, "rain 24h")
-Measure(0x49d, "rdh",  conv_rain, "rain 24h max",		reset="rd")
-Measure(0x4a3, "rdhw", conv_stmp, "rain 24h max when",		reset="sw")
+Measure(0x49d, "rdh",  conv_rain, "rain 24h max",        reset="rd")
+Measure(0x4a3, "rdhw", conv_stmp, "rain 24h max when",        reset="sw")
 Measure(0x4ae, "rdha", conv_rain, "rain 24h max alarm")
 Measure(0x4b4, "rh",   conv_rain, "rain 1h")
-Measure(0x4ba, "rhh",  conv_rain, "rain 1h max",		reset="rh")
-Measure(0x4c0, "rhhw", conv_stmp, "rain 1h max when",		reset="sw")
+Measure(0x4ba, "rhh",  conv_rain, "rain 1h max",        reset="rh")
+Measure(0x4c0, "rhhw", conv_stmp, "rain 1h max when",        reset="sw")
 Measure(0x4cb, "rhha", conv_rain, "rain 1h max alarm")
-Measure(0x4d2, "rt",   conv_rain, "rain total",			reset=0)
-Measure(0x4d8, "rtrw", conv_stmp, "rain total reset when",	reset="sw")
-Measure(0x4ee, "wsl",  conv_wspd, "wind speed min",		reset="ws")
-Measure(0x4f4, "wsh",  conv_wspd, "wind speed max",		reset="ws")
-Measure(0x4f8, "wslw", conv_stmp, "wind speed min when",	reset="sw")
-Measure(0x502, "wshw", conv_stmp, "wind speed max when",	reset="sw")
+Measure(0x4d2, "rt",   conv_rain, "rain total",            reset=0)
+Measure(0x4d8, "rtrw", conv_stmp, "rain total reset when",    reset="sw")
+Measure(0x4ee, "wsl",  conv_wspd, "wind speed min",        reset="ws")
+Measure(0x4f4, "wsh",  conv_wspd, "wind speed max",        reset="ws")
+Measure(0x4f8, "wslw", conv_stmp, "wind speed min when",    reset="sw")
+Measure(0x502, "wshw", conv_stmp, "wind speed max when",    reset="sw")
 Measure(0x527, "wso",  conv_wovr, "wind speed overflow")
 Measure(0x528, "wsv",  conv_wvld, "wind speed validity")
 Measure(0x529, "wv",   conv_wvel, "wind velocity")
@@ -1897,19 +1895,19 @@ Measure(0x54f, "cc",   conv_per2, "connection time till connect")
 Measure(0x5d8, "pa",   conv_pres, "pressure absolute")
 Measure(0x5e2, "pr",   conv_pres, "pressure relative")
 Measure(0x5ec, "pc",   conv_pres, "pressure correction")
-Measure(0x5f6, "pal",  conv_pres, "pressure absolute min",	reset="pa")
-Measure(0x600, "prl",  conv_pres, "pressure relative min",	reset="pr")
-Measure(0x60a, "pah",  conv_pres, "pressure absolute max",	reset="pa")
-Measure(0x614, "prh",  conv_pres, "pressure relative max",	reset="pr")
-Measure(0x61e, "plw",  conv_stmp, "pressure min when",		reset="sw")
-Measure(0x628, "phw",  conv_stmp, "pressure max when",		reset="sw")
+Measure(0x5f6, "pal",  conv_pres, "pressure absolute min",    reset="pa")
+Measure(0x600, "prl",  conv_pres, "pressure relative min",    reset="pr")
+Measure(0x60a, "pah",  conv_pres, "pressure absolute max",    reset="pa")
+Measure(0x614, "prh",  conv_pres, "pressure relative max",    reset="pr")
+Measure(0x61e, "plw",  conv_stmp, "pressure min when",        reset="sw")
+Measure(0x628, "phw",  conv_stmp, "pressure max when",        reset="sw")
 Measure(0x63c, "pla",  conv_pres, "pressure min alarm")
 Measure(0x650, "pha",  conv_pres, "pressure max alarm")
 Measure(0x6b2, "hi",   conv_per3, "history interval")
 Measure(0x6b5, "hc",   conv_per3, "history time till sample")
 Measure(0x6b8, "hw",   conv_stmp, "history last sample when")
 Measure(0x6c2, "hp",   conv_rec2, "history last record pointer",reset=0)
-Measure(0x6c4, "hn",   conv_rec2, "history number of records",	reset=0)
+Measure(0x6c4, "hn",   conv_rec2, "history number of records",    reset=0)
 # get all of the wind info in a single invocation
 Measure(0x527, "wind", conv_wind, "wind")
 
@@ -2010,3 +2008,4 @@ if __name__ == '__main__':
 
 if __name__ == '__main__':
     main()
+

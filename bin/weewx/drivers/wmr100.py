@@ -34,16 +34,16 @@ import syslog
 import usb
 
 import weeutil.weeutil
-import weewx.abstractstation
-import weewx.units
+import weecore.abstractstation
+import weecore.units
 import weewx.wxformulas
 
 def loader(config_dict, engine):
-    altitude_m = weewx.units.getAltitudeM(config_dict)
+    altitude_m = weecore.units.getAltitudeM(config_dict)
     station = WMR100(altitude=altitude_m, **config_dict['WMR100'])    
     return station
         
-class WMR100(weewx.abstractstation.AbstractStation):
+class WMR100(weecore.abstractstation.AbstractStation):
     """Driver for the WMR100 station."""
     
     def __init__(self, **stn_dict) :
@@ -165,7 +165,7 @@ class WMR100(weewx.abstractstation.AbstractStation):
                 try:
                     computed_checksum = reduce(operator.iadd, buff[:-2])
                 except TypeError, e:
-                    if weewx.debug:
+                    if weecore.debug:
                         syslog.syslog(syslog.LOG_DEBUG, "wmr100: Exception while calculating checksum.")
                         syslog.syslog(syslog.LOG_DEBUG, "****  %s" % e)
                 else:
@@ -173,7 +173,7 @@ class WMR100(weewx.abstractstation.AbstractStation):
                     if computed_checksum == actual_checksum:
                         # Looks good. Yield the packet
                         yield buff
-                    elif weewx.debug:
+                    elif weecore.debug:
                         syslog.syslog(syslog.LOG_DEBUG, "wmr100: Bad checksum on buffer of length %d" % len(buff))
                 # Throw away the next character (which will be 0xff):
                 genBytes.next()
@@ -253,7 +253,7 @@ class WMR100(weewx.abstractstation.AbstractStation):
                    'totalRain'         : ((packet[9] << 8) + packet[8]) / 100.0,
                    'rainBatteryStatus' : packet[0] >> 4,
                    'dateTime'          : int(time.time() + 0.5),
-                   'usUnits'           : weewx.US}
+                   'usUnits'           : weecore.US}
 
         # Because the WMR does not offer anything like bucket tips, we must
         # calculate it by looking for the change in total rain. Of course, this
@@ -264,7 +264,7 @@ class WMR100(weewx.abstractstation.AbstractStation):
 
     def _temperature_packet(self, packet):
         _record = {'dateTime'    : int(time.time() + 0.5),
-                   'usUnits'     : weewx.METRIC}
+                   'usUnits'     : weecore.METRIC}
         # Per Ejeklint's notes don't mention what to do if temperature is
         # negative. I think the following is correct. Also, from experience, we
         # know that the WMR has problems measuring dewpoint at temperatures
@@ -306,7 +306,7 @@ class WMR100(weewx.abstractstation.AbstractStation):
         # function added by fstuyk to manage temperature-only sensor THWR800
         #
         _record = {'dateTime'    : int(time.time() + 0.5),
-                   'usUnits'     : weewx.METRIC}
+                   'usUnits'     : weecore.METRIC}
         # Per Ejeklint's notes don't mention what to do if temperature is
         # negative. I think the following is correct. 
         T = (((packet[4] & 0x7f) << 8) + packet[3])/10.0
@@ -352,14 +352,14 @@ class WMR100(weewx.abstractstation.AbstractStation):
                    'pressure'    : SP,
                    'altimeter'   : SA,
                    'dateTime'    : int(time.time() + 0.5),
-                   'usUnits'     : weewx.METRIC}
+                   'usUnits'     : weecore.METRIC}
         return _record
         
     def _uv_packet(self, packet):
         _record = {'UV'              : float(packet[3]),
                    'uvBatteryStatus' : packet[0] >> 4,
                    'dateTime'        : int(time.time() + 0.5),
-                   'usUnits'         : weewx.METRIC}
+                   'usUnits'         : weecore.METRIC}
         return _record
         
     
@@ -372,7 +372,7 @@ class WMR100(weewx.abstractstation.AbstractStation):
                    'windDir'           : (packet[2] & 0x0f) * 360.0 / 16.0,
                    'windBatteryStatus' : (packet[0] >> 4),
                    'dateTime'          : int(time.time() + 0.5),
-                   'usUnits'           : weewx.METRIC}
+                   'usUnits'           : weecore.METRIC}
         # Wind direction is undefined if wind speed is zero:
         if _record['windSpeed'] == 0:
             _record['windDir'] = None

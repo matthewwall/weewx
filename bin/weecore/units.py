@@ -12,7 +12,7 @@ import locale
 import time
 import syslog
 
-import weewx
+import weecore
 import weeutil.weeutil
 
 class UnknownType(object):
@@ -20,13 +20,13 @@ class UnknownType(object):
     def __init__(self, obs_type):
         self.obs_type = obs_type
 
-unit_constants = {'US'       : weewx.US,
-                  'METRIC'   : weewx.METRIC,
-                  'METRICWX' : weewx.METRICWX}
+unit_constants = {'US'       : weecore.US,
+                  'METRIC'   : weecore.METRIC,
+                  'METRICWX' : weecore.METRICWX}
 
-unit_nicknames = {weewx.US       : 'US',
-                  weewx.METRIC   : 'METRIC',
-                  weewx.METRICWX : 'METRICWX'}
+unit_nicknames = {weecore.US       : 'US',
+                  weecore.METRIC   : 'METRIC',
+                  weecore.METRICWX : 'METRICWX'}
 
 # This data structure maps observation types to a "unit group"
 obs_group_dict = {"altitude"           : "group_altitude",
@@ -662,7 +662,7 @@ class Converter(object):
         >>> c = Converter()
         >>> # Source dictionary is in metric units
         >>> source_dict = {'dateTime': 194758100, 'outTemp': 20.0,\
-            'usUnits': weewx.METRIC, 'barometer':1015.8, 'interval':15}
+            'usUnits': weecore.METRIC, 'barometer':1015.8, 'interval':15}
         >>> target_dict = c.convertDict(source_dict)
         >>> print target_dict
         {'outTemp': 68.0, 'interval': 15, 'barometer': 30.0, 'dateTime': 194758100}
@@ -700,9 +700,9 @@ class Converter(object):
 #==============================================================================
 
 # This dictionary holds converters for the standard unit conversion systems. 
-StdUnitConverters = {weewx.US       : Converter(USUnits),
-                     weewx.METRIC   : Converter(MetricUnits),
-                     weewx.METRICWX : Converter(MetricWXUnits)}
+StdUnitConverters = {weecore.US       : Converter(USUnits),
+                     weecore.METRIC   : Converter(MetricUnits),
+                     weecore.METRICWX : Converter(MetricWXUnits)}
 
 #==============================================================================
 #                        class FixedConverter
@@ -1017,7 +1017,7 @@ def convert(val_t, target_unit_type):
     target_unit_type: The unit type (e.g., "meter", or "mbar") to
     which the value is to be converted. 
     
-    returns: An instance of weewx.ValueTuple, converted into the desired units.
+    returns: An instance of weecore.ValueTuple, converted into the desired units.
     """
     # If the value is already in the target unit type, then just return it:
     if val_t[1] == target_unit_type:
@@ -1028,7 +1028,7 @@ def convert(val_t, target_unit_type):
     try:
         conversion_func = conversionDict[val_t[1]][target_unit_type]
     except KeyError:
-        if weewx.debug:
+        if weecore.debug:
             syslog.syslog(syslog.LOG_DEBUG, "units: Unable to convert from %s to %s" %(val_t[1], target_unit_type))
         raise
     # Try converting a sequence first. A TypeError exception will occur if
@@ -1047,22 +1047,22 @@ def convertStd(val_t, target_std_unit_system):
     val_t: A value tuple.
     
     target_std_unit_system: A standardized unit system
-                            (weewx.US, weewx.METRIC, or weewx.METRICWX)
+                            (weecore.US, weecore.METRIC, or weecore.METRICWX)
     
     Returns: A value tuple in the given standardized unit system.
     
     Example:
     >>> value_t = (30.02, 'inHg', 'group_pressure')
-    >>> print "(%.2f, %s, %s)" % convertStd(value_t, weewx.METRIC)
+    >>> print "(%.2f, %s, %s)" % convertStd(value_t, weecore.METRIC)
     (1016.48, mbar, group_pressure)
     >>> value_t = (1.2, 'inch', 'group_rain')
-    >>> print "(%.2f, %s, %s)" % convertStd(value_t, weewx.METRICWX)
+    >>> print "(%.2f, %s, %s)" % convertStd(value_t, weecore.METRICWX)
     (30.48, mm, group_rain)
     """
     return StdUnitConverters[target_std_unit_system].convert(val_t)
 
 def getStandardUnitType(target_std_unit_system, obs_type, agg_type=None):
-    """Given a standard unit system (weewx.US, weewx.METRIC, weewx.METRICWX),
+    """Given a standard unit system (weecore.US, weecore.METRIC, weecore.METRICWX),
     an observation type, and an aggregation type, what units would it be in?
     
     target_std_unit_system: A standardized unit system. If None, then
@@ -1075,15 +1075,15 @@ def getStandardUnitType(target_std_unit_system, obs_type, agg_type=None):
     returns: A 2-way tuple containing the target units, and the target group.
 
     Examples:
-    >>> print getStandardUnitType(weewx.US,     'barometer')
+    >>> print getStandardUnitType(weecore.US,     'barometer')
     ('inHg', 'group_pressure')
-    >>> print getStandardUnitType(weewx.METRIC, 'barometer')
+    >>> print getStandardUnitType(weecore.METRIC, 'barometer')
     ('mbar', 'group_pressure')
-    >>> print getStandardUnitType(weewx.US, 'barometer', 'mintime')
+    >>> print getStandardUnitType(weecore.US, 'barometer', 'mintime')
     ('unix_epoch', 'group_time')
-    >>> print getStandardUnitType(weewx.METRIC, 'barometer', 'avg')
+    >>> print getStandardUnitType(weecore.METRIC, 'barometer', 'avg')
     ('mbar', 'group_pressure')
-    >>> print getStandardUnitType(weewx.METRIC, 'wind', 'rms')
+    >>> print getStandardUnitType(weecore.METRIC, 'wind', 'rms')
     ('km_per_hour', 'group_speed')
     >>> print getStandardUnitType(None, 'barometer', 'avg')
     (None, None)
@@ -1103,16 +1103,16 @@ class GenWithConvert(object):
     ...    for i in range(3):
     ...        _rec = {'dateTime' : 194758100 + i*300,
     ...            'outTemp' : 68.0 + i * 9.0/5.0,
-    ...            'usUnits' : weewx.US}
+    ...            'usUnits' : weecore.US}
     ...        yield _rec
-    >>> for _out in GenWithConvert(genfunc(), weewx.METRIC):
+    >>> for _out in GenWithConvert(genfunc(), weecore.METRIC):
     ...    print "Timestamp: %d; Temperature: %.2f; Unit system: %d" % (_out['dateTime'], _out['outTemp'], _out['usUnits'])
     Timestamp: 194758100; Temperature: 20.00; Unit system: 16
     Timestamp: 194758400; Temperature: 21.00; Unit system: 16
     Timestamp: 194758700; Temperature: 22.00; Unit system: 16
     """
     
-    def __init__(self, input_generator, target_unit_system=weewx.METRIC):
+    def __init__(self, input_generator, target_unit_system=weecore.METRIC):
         """Initialize an instance of GenWithConvert
         
         input_generator: An iterator which will return dictionary records.
@@ -1150,15 +1150,15 @@ def getAltitudeFt(config_dict):
 
 def to_US(datadict):
     """Convert the units used in a dictionary to US Customary."""
-    return to_std_system(datadict, weewx.US)
+    return to_std_system(datadict, weecore.US)
 
 def to_METRIC(datadict):
     """Convert the units used in a dictionary to Metric."""
-    return to_std_system(datadict, weewx.METRIC)
+    return to_std_system(datadict, weecore.METRIC)
 
 def to_METRICWX(datadict):
     """Convert the units used in a dictionary to MetricWX."""
-    return to_std_system(datadict, weewx.METRICWX)
+    return to_std_system(datadict, weecore.METRICWX)
 
 def to_std_system(datadict, unit_system):
     """Convert the units used in a dictionary to a target unit system."""

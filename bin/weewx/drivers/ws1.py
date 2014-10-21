@@ -26,10 +26,8 @@ import serial
 import syslog
 import time
 
-import weewx
-import weewx.abstractstation
-import weewx.units
-import weewx.uwxutils
+import weecore.abstractstation
+import weecore.units
 import weewx.wxformulas
 
 INHG_PER_MBAR = 0.0295333727
@@ -54,12 +52,12 @@ def logerr(msg):
 
 def loader(config_dict, engine):
     """Get the altitude, in feet, from the Station section of the dict."""
-    altitude_m = weewx.units.getAltitudeM(config_dict)
+    altitude_m = weecore.units.getAltitudeM(config_dict)
     altitude_ft = altitude_m / METER_PER_FOOT
     station = WS1(altitude=altitude_ft, **config_dict['WS1'])
     return station
 
-class WS1(weewx.abstractstation.AbstractStation):
+class WS1(weecore.abstractstation.AbstractStation):
     '''weewx driver that communicates with an ADS-WS1 station
     
     port - serial port
@@ -94,7 +92,7 @@ class WS1(weewx.abstractstation.AbstractStation):
             ntries += 1
             try:
                 packet = {'dateTime': int(time.time()+0.5),
-                          'usUnits' : weewx.US }
+                          'usUnits' : weecore.US }
                 # open a new connection to the station for each reading
                 with Station(self.port) as station:
                     bytes = station.get_readings()

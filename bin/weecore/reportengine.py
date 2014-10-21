@@ -27,14 +27,14 @@ import configobj
 # Weewx imports:
 import weeutil.weeutil
 from weeutil.weeutil import to_bool
-import weewx.archive
+import weecore.archive
 
 #===============================================================================
 #                    Class StdReportEngine
 #===============================================================================
 
 class StdReportEngine(threading.Thread):
-    """Reporting engine for weewx.
+    """Reporting engine for weecore.
     
     This engine runs zero or more reports. Each report uses a skin. A skin
     has its own configuration file specifying things such as which 'generators'
@@ -53,7 +53,7 @@ class StdReportEngine(threading.Thread):
         
         config_dict: The configuration dictionary.
         
-        stn_info: An instance of weewx.station.StationInfo, with static station information.
+        stn_info: An instance of weecore.station.StationInfo, with static station information.
         
         gen_ts: The timestamp for which the output is to be current [Optional; default
         is the last time in the database]
@@ -109,7 +109,7 @@ class StdReportEngine(threading.Thread):
             skin_dict['binding'] = 'wx_binding'
 
             # Inject any overrides the user may have specified in the
-            # weewx.conf configuration file for all reports:
+            # weecore.conf configuration file for all reports:
             for scalar in self.config_dict['StdReport'].scalars:
                 skin_dict[scalar] = self.config_dict['StdReport'][scalar]
             
@@ -164,7 +164,7 @@ class ReportGenerator(object):
         self.gen_ts      = gen_ts
         self.first_run   = first_run
         self.stn_info    = stn_info
-        self.db_binder   = weewx.archive.DBBinder(self.config_dict)
+        self.db_binder   = weecore.archive.DBBinder(self.config_dict)
         
     def start(self):
         self.run()

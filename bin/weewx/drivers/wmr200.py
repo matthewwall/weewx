@@ -52,8 +52,8 @@ import time
 import usb
 
 import weeutil.weeutil
-import weewx.abstractstation
-import weewx.units
+import weecore.abstractstation
+import weecore.units
 import weewx.wxformulas
 
 # General decoding sensor maps.
@@ -147,7 +147,7 @@ def logcrt(msg):
 
 def loader(config_dict, engine):
     """Used to load the driver."""
-    altitude_m = weewx.units.getAltitudeM(config_dict)
+    altitude_m = weecore.units.getAltitudeM(config_dict)
     station = WMR200(altitude=altitude_m, **config_dict['WMR200'])
     return station
 
@@ -380,7 +380,7 @@ class Packet(object):
     def packet_process(self):
         """Process the raw data and creates a record field."""
         # Convention is that this driver only works in metric units.
-        self._record.update({'usUnits' : weewx.METRIC})
+        self._record.update({'usUnits' : weecore.METRIC})
         if DEBUG_PACKETS_RAW or DEBUG_PACKETS_COOKED:
             logdbg('Processing %s' % self.pkt_name)
         if self.pkt_len and self.pkt_len != self.size_actual():
@@ -1413,7 +1413,7 @@ class PollUsbDevice(threading.Thread):
         self._cv_poll.notify()
         self._cv_poll.release()
 
-class WMR200(weewx.abstractstation.AbstractStation):
+class WMR200(weecore.abstractstation.AbstractStation):
     """Driver for the Oregon Scientific WMR200 station."""
 
     def __init__(self, **stn_dict) :

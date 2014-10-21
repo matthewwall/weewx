@@ -231,14 +231,14 @@ import threading
 import usb
 
 import weeutil.weeutil
-import weewx.abstractstation
-import weewx.units
+import weecore.abstractstation
+import weecore.units
 import weewx.wxformulas
 
 DRIVER_VERSION = '1.6'
 
 def loader(config_dict, engine):
-    altitude_m = weewx.units.getAltitudeM(config_dict)
+    altitude_m = weecore.units.getAltitudeM(config_dict)
     station = FineOffsetUSB(altitude=altitude_m,**config_dict['FineOffsetUSB'])
     return station
 
@@ -334,7 +334,7 @@ def pywws2weewx(p, ts, pressure_offset, altitude,
 
     packet = {}
     # required elements
-    packet['usUnits'] = weewx.METRIC
+    packet['usUnits'] = weecore.METRIC
     packet['dateTime'] = ts
 
     # everything else...
@@ -401,7 +401,7 @@ def pywws2weewx(p, ts, pressure_offset, altitude,
         packet['rain'], packet['dateTime'], last_rain_ts)
 
     # report rainfall in log to diagnose rain counter issues
-    if weewx.debug:
+    if weecore.debug:
         if packet['rain'] is not None and packet['rain'] > 0:
             logdbg('got rainfall of %.2f cm (new: %.2f old: %.2f)' %
                    (packet['rain'], packet['rainTotal'], last_rain))
@@ -596,7 +596,7 @@ class ObservationError(Exception):
 PERIODIC_POLLING = 'PERIODIC'
 ADAPTIVE_POLLING = 'ADAPTIVE'
 
-class FineOffsetUSB(weewx.abstractstation.AbstractStation):
+class FineOffsetUSB(weecore.abstractstation.AbstractStation):
     """Driver for FineOffset USB stations."""
     
     def __init__(self, **stn_dict) :

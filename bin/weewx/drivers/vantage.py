@@ -12,12 +12,12 @@ import struct
 import syslog
 import time
 
-from weewx.crc16 import crc16
+from weecore.crc16 import crc16
 import weeutil.weeutil
-import weewx.units
+import weecore.units
 import weewx.wxformulas
-import weewx.abstractstation
-import weewx.wxengine
+import weecore.abstractstation
+import weecore.wxengine
 import weewx.uwxutils
 
 # A few handy constants:
@@ -325,7 +325,7 @@ class EthernetWrapper(BaseWrapper):
 #                           Class Vantage
 #===============================================================================
 
-class Vantage(weewx.abstractstation.AbstractStation):
+class Vantage(weecore.abstractstation.AbstractStation):
     """Class that represents a connection to a Davis Vantage console.
     
     The connection to the console will be open after initialization"""
@@ -909,7 +909,7 @@ class Vantage(weewx.abstractstation.AbstractStation):
         the # of CRC errors detected.)"""
 
         rx_list = self.port.send_command('RXCHECK\n')
-        if weewx.debug:
+        if weecore.debug:
             assert(len(rx_list) == 1)
         
         # The following is a list of the reception statistics, but the elements are strings
@@ -1056,7 +1056,7 @@ class Vantage(weewx.abstractstation.AbstractStation):
         self.rain_year_start   = self._getEEPROM_value(0x2C)[0]
         self.archive_interval_ = self._getEEPROM_value(0x2D)[0] * 60
         self.altitude          = self._getEEPROM_value(0x0F, "<H")[0]
-        self.altitude_vt       = weewx.units.ValueTuple(self.altitude, "foot", "group_altitude") 
+        self.altitude_vt       = weecore.units.ValueTuple(self.altitude, "foot", "group_altitude") 
 
         barometer_unit_code   =  unit_bits & 0x03
         temperature_unit_code = (unit_bits & 0x0C) >> 3
@@ -1184,7 +1184,7 @@ class Vantage(weewx.abstractstation.AbstractStation):
             raw_loop_packet['loop_type'] = 'B'
     
         loop_packet = {'dateTime' : int(time.time() + 0.5),
-                       'usUnits'  : weewx.US}
+                       'usUnits'  : weecore.US}
         
         for _type in raw_loop_packet:
             # Get the mapping function for this type:
@@ -1251,7 +1251,7 @@ class Vantage(weewx.abstractstation.AbstractStation):
         raw_archive_packet = dict(zip(dataTypes, data_tuple))
         
         archive_packet = {'dateTime' : _archive_datetime(raw_archive_packet['date_stamp'], raw_archive_packet['time_stamp']),
-                          'usUnits'  : weewx.US}
+                          'usUnits'  : weecore.US}
         
         for _type in raw_archive_packet:
             # Get the mapping function for this type:
@@ -1599,12 +1599,12 @@ _archive_map={'barometer'      : _val1000Zero,
 
 # This class uses multiple inheritance:
 
-class VantageService(Vantage, weewx.wxengine.StdService):
+class VantageService(Vantage, weecore.wxengine.StdService):
     """Weewx service for the Vantage weather stations."""
     
     def __init__(self, engine, config_dict):
         Vantage.__init__(self, **config_dict['Vantage'])
-        weewx.wxengine.StdService.__init__(self, engine, config_dict)
+        weecore.wxengine.StdService.__init__(self, engine, config_dict)
 
         self.bind(weewx.STARTUP, self.startup)        
         self.bind(weewx.NEW_LOOP_PACKET,    self.new_loop_packet)
@@ -1614,7 +1614,7 @@ class VantageService(Vantage, weewx.wxengine.StdService):
     def startup(self, event):
         
         # Open up the archive database:
-        self.archive = weewx.archive.open_database(self.config_dict, 'wx_binding') 
+        self.archive = weecore.archive.open_database(self.config_dict, 'wx_binding') 
         self.old_time_12_ts = None
         self.temperature_12 = None
         

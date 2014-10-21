@@ -8,7 +8,7 @@
 #    $Date$
 #
 
-import weewx.cheetahgenerator
+import weecore.cheetahgenerator
 
 # For backwards compatibility:
-FileGenerator = weewx.cheetahgenerator.CheetahGenerator
+FileGenerator = weecore.cheetahgenerator.CheetahGenerator

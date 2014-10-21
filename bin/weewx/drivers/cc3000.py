@@ -28,10 +28,8 @@ import string
 import syslog
 import time
 
-import weewx
-import weewx.abstractstation
-import weewx.units
-import weewx.uwxutils
+import weecore.abstractstation
+import weecore.units
 import weewx.wxformulas
 
 INHG_PER_MBAR = 0.0295333727
@@ -55,16 +53,16 @@ def logerr(msg):
 
 def loader(config_dict, engine):
     """Get the altitude, in feet, from the Station section of the dict."""
-    altitude_m = weewx.units.getAltitudeM(config_dict)
+    altitude_m = weecore.units.getAltitudeM(config_dict)
     altitude_ft = altitude_m / METER_PER_FOOT
     station = CC3000(altitude=altitude_ft, **config_dict['CC3000'])
     return station
 
 class ChecksumMismatch(weewx.WeeWxIOError):
     def __init__(self, a, b):
-        weewx.WeeWxIOError.__init__(self, "Checksum mismatch: 0x%04x != 0x%04x" % (a,b))
+        weecore.InputOutputError.__init__(self, "Checksum mismatch: 0x%04x != 0x%04x" % (a,b))
 
-class CC3000(weewx.abstractstation.AbstractStation):
+class CC3000(weecore.abstractstation.AbstractStation):
     '''weewx driver that communicates with a RainWise CC3000 data logger.'''
 
     # map rainwise names to weewx names
@@ -111,7 +109,7 @@ class CC3000(weewx.abstractstation.AbstractStation):
         loginf('units are %s' % self.units)
 
     def genLoopPackets(self):
-        units = weewx.US if self.units == 'ENGLISH' else weewx.METRIC
+        units = weecore.US if self.units == 'ENGLISH' else weecore.METRIC
         while True:
             with Station(self.port) as station:
                 values = station.get_current_data()
@@ -135,7 +133,7 @@ class CC3000(weewx.abstractstation.AbstractStation):
 
         NB: using gen_records did not work very well - bytes were corrupted.
         so we use more memory and load everything into memory first."""
-        units = weewx.US if self.units == 'ENGLISH' else weewx.METRIC
+        units = weecore.US if self.units == 'ENGLISH' else weecore.METRIC
         with Station(self.port) as station:
             records = station.get_records()
             cnt = len(records)
@@ -240,7 +238,7 @@ class CC3000(weewx.abstractstation.AbstractStation):
 
     def _augment_packet(self, packet):
         """add derived metrics to a packet"""
-        if packet['usUnits'] == weewx.METRIC:
+        if packet['usUnits'] == weecore.METRIC:
             self._augment_packet_metric(packet)
         else:
             self._augment_packet_us(packet)

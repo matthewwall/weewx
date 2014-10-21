@@ -17,7 +17,7 @@ import sys
 import math
 
 import weeutil.Moon
-import weewx.units
+import weecore.units
 
 # If the user has installed ephem, use it. Otherwise, fall back to the weeutil algorithms:
 try:
@@ -136,7 +136,7 @@ class Almanac():
                  pressure=None,     #  "
                  horizon=None,      #  "
                  moon_phases=weeutil.Moon.moon_phases,
-                 formatter=weewx.units.Formatter()):
+                 formatter=weecore.units.Formatter()):
         """Initialize an instance of Almanac
 
         time_ts: A unix epoch timestamp with the time of the almanac. If None, the
@@ -155,7 +155,7 @@ class Almanac():
         moon_phases: An array of 8 strings with descriptions of the moon 
         phase. [optional. If not given, then weeutil.Moon.moon_phases will be used]
         
-        formatter: An instance of weewx.units.Formatter() with the formatting information
+        formatter: An instance of weecore.units.Formatter() with the formatting information
         to be used.
         """
         self.time_ts      = time_ts if time_ts else time.time()
@@ -286,7 +286,7 @@ class Almanac():
             # This is how you call a function on an instance when all you have
             # is the function's name as a string
             djd = getattr(ephem, attr)(self.time_djd)
-            return weewx.units.ValueHelper((djd, "dublin_jd", "group_time"), 
+            return weecore.units.ValueHelper((djd, "dublin_jd", "group_time"), 
                                            context="ephem_year", formatter=self.formatter)
         else:
             # It's not a calendar event. The attribute must be a heavenly body
@@ -317,7 +317,7 @@ class BodyWrapper(object):
         
         observer: An instance of ephem.Observer, containing the observer's lat, lon, time, etc.
         
-        formatter: An instance of weewx.units.Formatter(), containing the formatting
+        formatter: An instance of weecore.units.Formatter(), containing the formatting
         to be used for times.
         """
         self.body_factory = body_factory
@@ -351,7 +351,7 @@ class BodyWrapper(object):
                 time_djd = getattr(self.observer, attr)(temp_body, use_center=self.use_center)
             except ephem.AlwaysUpError:
                 time_djd = None
-            return weewx.units.ValueHelper((time_djd, "dublin_jd", "group_time"), context="ephem_day", formatter=self.formatter)
+            return weecore.units.ValueHelper((time_djd, "dublin_jd", "group_time"), context="ephem_day", formatter=self.formatter)
         elif attr in fn_map:
             # These attribute names have to be mapped to a different function name. Like the
             # attributes above, they also have the side effect of changing the state of the body.
@@ -366,7 +366,7 @@ class BodyWrapper(object):
                 time_djd = getattr(self.observer, fn)(temp_body, self.sod_djd)
             except ephem.AlwaysUpError:
                 time_djd = None
-            return weewx.units.ValueHelper((time_djd, "dublin_jd", "group_time"), context="ephem_day", formatter=self.formatter)
+            return weecore.units.ValueHelper((time_djd, "dublin_jd", "group_time"), context="ephem_day", formatter=self.formatter)
             
         else:
             # Just return the result unchanged.

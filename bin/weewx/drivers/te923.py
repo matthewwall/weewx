@@ -156,8 +156,8 @@ import time
 import usb
 
 import weeutil
-import weewx.abstractstation
-import weewx.units
+import weecore.abstractstation
+import weecore.units
 import weewx.wxformulas
 
 DRIVER_VERSION = '0.11'
@@ -208,7 +208,7 @@ def logerr(msg):
     logmsg(syslog.LOG_ERR, msg)
 
 def loader(config_dict, engine):
-    altitude_m = weewx.units.getAltitudeM(config_dict)
+    altitude_m = weecore.units.getAltitudeM(config_dict)
     station = TE923(altitude=altitude_m, **config_dict['TE923'])
     return station
 
@@ -230,7 +230,7 @@ def bp2sp(bp_mbar, elev_meter, t_C, humidity):
                                                            t_C, t_C, humidity)
     return sp
 
-class TE923(weewx.abstractstation.AbstractStation):
+class TE923(weecore.abstractstation.AbstractStation):
     """Driver for Hideki TE923 stations."""
     
     def __init__(self, **stn_dict) :
@@ -350,7 +350,7 @@ def data_to_packet(data, status=None, altitude=0,
     """
 
     packet = {}
-    packet['usUnits'] = weewx.METRIC
+    packet['usUnits'] = weecore.METRIC
     packet['dateTime'] = int(time.time() + 0.5)
 
     packet['inTemp'] = data['t_in'] # T is degree C

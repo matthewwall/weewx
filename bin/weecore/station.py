@@ -11,7 +11,7 @@
 import time
 
 import weeutil.weeutil
-import weewx.units
+import weecore.units
 
 # For MacOS:
 try:
@@ -82,19 +82,19 @@ class Station(object):
         self.longitude = weeutil.weeutil.latlon_string(stn_info.longitude_f, 
                                                        hemispheres[2:4],
                                                        'lon', latlon_formats)
-        self.altitude = weewx.units.ValueHelper(value_t=stn_info.altitude_vt,
+        self.altitude = weecore.units.ValueHelper(value_t=stn_info.altitude_vt,
                                                 formatter=formatter,
                                                 converter=converter)
         self.rain_year_str = time.strftime("%b", (0, self.rain_year_start, 1, 0,0,0,0,0,-1))
 
-        self.version = weewx.__version__
+        self.version = weecore.__version__
 
     @property
     def uptime(self):        
         """Lazy evaluation of weewx uptime."""
-        delta_time = time.time() - weewx.launchtime_ts if weewx.launchtime_ts else None
+        delta_time = time.time() - weecore.launchtime_ts if weecore.launchtime_ts else None
             
-        return weewx.units.ValueHelper(value_t=(delta_time, "second", "group_deltatime"),
+        return weecore.units.ValueHelper(value_t=(delta_time, "second", "group_deltatime"),
                                        formatter=self.formatter,
                                        converter=self.converter)
     
@@ -114,7 +114,7 @@ class Station(object):
             except NameError:
                 pass
 
-        return weewx.units.ValueHelper(value_t=(os_uptime_secs, "second", "group_deltatime"),
+        return weecore.units.ValueHelper(value_t=(os_uptime_secs, "second", "group_deltatime"),
                                        formatter=self.formatter,
                                        converter=self.converter)
 

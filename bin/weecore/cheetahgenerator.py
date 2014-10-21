@@ -65,20 +65,20 @@ import Cheetah.Template
 import Cheetah.Filters
 
 import weeutil.weeutil
-import weewx.almanac
-import weewx.reportengine
-import weewx.station
-import weewx.units
-import weewx.tags
+import weecore.almanac
+import weecore.reportengine
+import weecore.station
+import weecore.units
+import weecore.tags
 from weeutil.weeutil import to_int
 
 # Default search list:
 default_search_list = [
-    "weewx.cheetahgenerator.Almanac",
-    "weewx.cheetahgenerator.Station",
-    "weewx.cheetahgenerator.Stats",
-    "weewx.cheetahgenerator.UnitInfo",
-    "weewx.cheetahgenerator.Extras"]
+    "weecore.cheetahgenerator.Almanac",
+    "weecore.cheetahgenerator.Station",
+    "weecore.cheetahgenerator.Stats",
+    "weecore.cheetahgenerator.UnitInfo",
+    "weecore.cheetahgenerator.Extras"]
 
 def logmsg(lvl, msg):
     syslog.syslog(lvl, 'cheetahgenerator: %s' % msg)
@@ -99,7 +99,7 @@ def logcrt(msg):
 # CheetahGenerator
 # =============================================================================
 
-class CheetahGenerator(weewx.reportengine.ReportGenerator):
+class CheetahGenerator(weecore.reportengine.ReportGenerator):
     """Class for generating files from cheetah templates.
     
     Useful attributes (some inherited from ReportGenerator):
@@ -108,13 +108,13 @@ class CheetahGenerator(weewx.reportengine.ReportGenerator):
         skin_dict:        The dictionary for this skin
         gen_ts:           The generation time
         first_run:        Is this the first time the generator has been run?
-        stn_info:         An instance of weewx.station.StationInfo
-        formatter:        An instance of weewx.units.Formatter
-        converter:        An instance of weewx.units.Converter
-        unitInfoHelper:   An instance of weewx.units.UnitInfoHelper
+        stn_info:         An instance of weecore.station.StationInfo
+        formatter:        An instance of weecore.units.Formatter
+        converter:        An instance of weecore.units.Converter
+        unitInfoHelper:   An instance of weecore.units.UnitInfoHelper
         search_list_exts: A list holding search list extensions, new style
         search_list_objs: A list holding search list extensions, old style
-        db_binder:        An instance of weewx.archive.DBBinder from which the data should be extracted
+        db_binder:        An instance of weecore.archive.DBBinder from which the data should be extracted
     """
 
     generator_dict = {'SummaryByMonth': weeutil.weeutil.genMonthSpans,
@@ -151,8 +151,8 @@ class CheetahGenerator(weewx.reportengine.ReportGenerator):
     def setup(self):
         self.outputted_dict = {'SummaryByMonth' : [], 'SummaryByYear'  : [] }
 
-        self.formatter = weewx.units.Formatter.fromSkinDict(self.skin_dict)
-        self.converter = weewx.units.Converter.fromSkinDict(self.skin_dict)
+        self.formatter = weecore.units.Formatter.fromSkinDict(self.skin_dict)
+        self.converter = weecore.units.Converter.fromSkinDict(self.skin_dict)
 
     def initExtensions(self, gen_dict):
         """Load the search list"""
@@ -282,7 +282,7 @@ class CheetahGenerator(weewx.reportengine.ReportGenerator):
             text = Cheetah.Template.Template(file=template,
                                              searchList=searchList,
                                              filter=encoding,
-                                             filtersLib=weewx.cheetahgenerator)
+                                             filtersLib=weecore.cheetahgenerator)
             tmpname = _fullname + '.tmp'
             try:
                 with open(tmpname, mode='w') as _file:
@@ -314,7 +314,7 @@ class CheetahGenerator(weewx.reportengine.ReportGenerator):
                       self.outputted_dict]
         
         # Then add the V3.X style search list extensions
-        db_factory = weewx.tags.DBFactory(self.db_binder, default_binding)
+        db_factory = weecore.tags.DBFactory(self.db_binder, default_binding)
         for obj in self.search_list_objs:
             searchList += obj.get_extension_list(timespan, db_factory)
 
@@ -392,7 +392,7 @@ class SearchList(object):
         timespan:  An instance of weeutil.weeutil.TimeSpan. This will hold the
                    start and stop times of the domain of valid times.
                    
-        db_factory: An instance of class weewx.tags.DBFactory
+        db_factory: An instance of class weecore.tags.DBFactory
         """
         return [self]
 
@@ -433,19 +433,19 @@ class Almanac(SearchList):
         
                     # Wrap the record in a ValueTupleDict. This makes it easy to do
                     # unit conversions.
-                    rec_vtd = weewx.units.ValueTupleDict(rec)
+                    rec_vtd = weecore.units.ValueTupleDict(rec)
                     
                     if rec_vtd.has_key('outTemp'):
-                        temperature_C = weewx.units.convert(rec_vtd['outTemp'], 'degree_C')[0]
+                        temperature_C = weecore.units.convert(rec_vtd['outTemp'], 'degree_C')[0]
         
                     if rec_vtd.has_key('barometer'):
-                        pressure_mbar = weewx.units.convert(rec_vtd['barometer'], 'mbar')[0]
+                        pressure_mbar = weecore.units.convert(rec_vtd['barometer'], 'mbar')[0]
         
         self.moonphases = generator.skin_dict.get('Almanac', {}).get('moon_phases', weeutil.Moon.moon_phases)
 
-        altitude_vt = weewx.units.convert(generator.stn_info.altitude_vt, "meter")
+        altitude_vt = weecore.units.convert(generator.stn_info.altitude_vt, "meter")
 
-        self.almanac = weewx.almanac.Almanac(celestial_ts,
+        self.almanac = weecore.almanac.Almanac(celestial_ts,
                                              generator.stn_info.latitude_f,
                                              generator.stn_info.longitude_f,
                                              altitude=altitude_vt[0],
@@ -459,7 +459,7 @@ class Station(SearchList):
 
     def __init__(self, generator):
         SearchList.__init__(self, generator)
-        self.station = weewx.station.Station(generator.stn_info,
+        self.station = weecore.station.Station(generator.stn_info,
                                              generator.formatter,
                                              generator.converter,
                                              generator.skin_dict)
@@ -468,36 +468,15 @@ class Stats(SearchList):
     """Class that implements the time-based statistical tags, such
     as $day.outTemp.max"""
 
-    # Default base temperature and unit type for heating and cooling degree days
-    # as a value tuple
-    default_heatbase = (65.0, "degree_F", "group_temperature")
-    default_coolbase = (65.0, "degree_F", "group_temperature")
 
     def get_extension_list(self, timespan, db_factory):
-        units_dict = self.generator.skin_dict.get('Units', {})
-        dd_dict = units_dict.get('DegreeDays', {})
-        heatbase = dd_dict.get('heating_base', None)
-        coolbase = dd_dict.get('cooling_base', None)
-        heatbase_t = (float(heatbase[0]), heatbase[1], "group_temperature") if heatbase else Stats.default_heatbase
-        coolbase_t = (float(coolbase[0]), coolbase[1], "group_temperature") if coolbase else Stats.default_coolbase
 
-        try:
-            time_delta = int(self.generator.skin_dict['Units']['Trend']['time_delta'])
-            time_grace = int(self.generator.skin_dict['Units']['Trend'].get('time_grace', 300))
-        except KeyError:
-            time_delta = 10800  # 3 hours
-            time_grace = 300    # 5 minutes
-
-        stats = weewx.tags.FactoryBinder(db_factory,
+        stats = weecore.tags.FactoryBinder(db_factory,
                                          timespan.stop,
                                          formatter=self.generator.formatter,
                                          converter=self.generator.converter,
-                                         rain_year_start=self.generator.stn_info.rain_year_start,
-                                         heatbase=heatbase_t,
-                                         coolbase=coolbase_t,
-                                         week_start=self.generator.stn_info.week_start,
-                                         time_delta=time_delta,
-                                         time_grace=time_grace)
+                                         stn_info= self.generator.stn_info,
+                                         skin_dict=self.generator.skin_dict)
 
         return [stats]
 
@@ -506,7 +485,7 @@ class UnitInfo(SearchList):
 
     def __init__(self, generator):
         SearchList.__init__(self, generator)
-        self.unit = weewx.units.UnitInfoHelper(generator.formatter,
+        self.unit = weecore.units.UnitInfoHelper(generator.formatter,
                                                generator.converter)
 
 class Extras(SearchList):

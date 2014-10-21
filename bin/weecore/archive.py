@@ -13,8 +13,8 @@ import math
 import os.path
 import syslog
 
-from weewx.units import ValueTuple
-import weewx.units
+from weecore.units import ValueTuple
+import weecore.units
 import weeutil.weeutil
 import weedb
 import user.schemas
@@ -37,7 +37,7 @@ class Archive(object):
     std_unit_system: The unit system used by the database."""
     
     def __init__(self, archive_db_dict, archiveSchema=None):
-        """Initialize an object of type weewx.Archive.
+        """Initialize an object of type weecore.Archive.
         
         archive_db_dict: A database dictionary holding the information necessary
         to open the database.
@@ -179,7 +179,7 @@ class Archive(object):
         
         if record['dateTime'] is None:
             syslog.syslog(syslog.LOG_ERR, "archive: archive record with null time encountered")
-            raise weewx.ViolatedPrecondition("Archive record with null time encountered.")
+            raise weecore.ViolatedPrecondition("Archive record with null time encountered.")
 
         # Check to make sure the incoming record is in the same unit
         # system as the records already in the database:
@@ -367,9 +367,10 @@ class Archive(object):
         be a vector of types complex. The real part is the x-component of the
         wind, the imaginary part the y-component. 
 
-        See the file weewx.units for the definition of a ValueTuple.
+        See the file weecore.units for the definition of a ValueTuple.
         """
 
+        # TODO: This should be a module-level dictionary, that can be manipulated by other modules
         windvec_types = {'windvec'     : ('windSpeed, windDir'),
                          'windgustvec' : ('windGust,  windGustDir')}
         
@@ -395,7 +396,7 @@ class Archive(object):
                 
                 # Check to make sure we have everything:
                 if not aggregate_interval:
-                    raise weewx.ViolatedPrecondition("Aggregation interval missing")
+                    raise weecore.ViolatedPrecondition("Aggregation interval missing")
 
                 # Aggregation is requested.
                 # The aggregation should happen over the x- and y-components.
@@ -404,7 +405,7 @@ class Archive(object):
                 # in the SQL statement. We'll have to do it in Python.
                 # Do we know how to do it?
                 if aggregate_type not in ('sum', 'count', 'avg', 'max', 'min'):
-                    raise weewx.ViolatedPrecondition, "Aggregation type missing or unknown"
+                    raise weecore.ViolatedPrecondition, "Aggregation type missing or unknown"
                 
                 # This SQL select string will select the proper wind types
                 sql_str = 'SELECT dateTime, %s, usUnits FROM archive WHERE dateTime > ? AND dateTime <= ?' % \
@@ -430,7 +431,7 @@ class Archive(object):
                             _last_time  = _rec[0]
                             if std_unit_system:
                                 if std_unit_system != _rec[3]:
-                                    raise weewx.UnsupportedFeature("Unit type cannot change "\
+                                    raise weecore.UnsupportedFeature("Unit type cannot change "\
                                                                    "within a time interval.")
                             else:
                                 std_unit_system = _rec[3]
@@ -462,7 +463,7 @@ class Archive(object):
                                 # The only way direction can be zero with a
                                 # non-zero count is if all wind velocities
                                 # were zero
-                                if weewx.debug:
+                                if weecore.debug:
                                     assert(_mag_extreme <= 1.0e-6)
                                 x_extreme = y_extreme = 0.0
                             else:
@@ -488,7 +489,7 @@ class Archive(object):
                     stop_vec.append(_rec[0])
                     if std_unit_system:
                         if std_unit_system != _rec[3]:
-                            raise weewx.UnsupportedFeature("Unit type cannot change "\
+                            raise weecore.UnsupportedFeature("Unit type cannot change "\
                                                            "within a time interval.")
                     else:
                         std_unit_system = _rec[3]
@@ -499,7 +500,7 @@ class Archive(object):
                     else:
                         x = _mag * math.cos(math.radians(90.0 - _dir))
                         y = _mag * math.sin(math.radians(90.0 - _dir))
-                        if weewx.debug:
+                        if weecore.debug:
                             # There seem to be some little rounding errors that
                             # are driving my debugging crazy. Zero them out
                             if abs(x) < 1.0e-6 : x = 0.0
@@ -508,11 +509,11 @@ class Archive(object):
         finally:
             _cursor.close()
 
-        (time_type, time_group) = weewx.units.getStandardUnitType(std_unit_system, 'dateTime')
-        (data_type, data_group) = weewx.units.getStandardUnitType(std_unit_system, ext_type, aggregate_type)
-        return (weewx.units.ValueTuple(start_vec, time_type, time_group),
-                weewx.units.ValueTuple(stop_vec, time_type, time_group),
-                weewx.units.ValueTuple(data_vec, data_type, data_group))
+        (time_type, time_group) = weecore.units.getStandardUnitType(std_unit_system, 'dateTime')
+        (data_type, data_group) = weecore.units.getStandardUnitType(std_unit_system, ext_type, aggregate_type)
+        return (weecore.units.ValueTuple(start_vec, time_type, time_group),
+                weecore.units.ValueTuple(stop_vec, time_type, time_group),
+                weecore.units.ValueTuple(data_vec, data_type, data_group))
 
     def _check_unit_system(self, unit_system):
         """ Check to make sure a unit system is the same as what's already in use in the database."""
@@ -534,7 +535,7 @@ class Archive(object):
         interval. 
         
         The return value is a 2-way tuple. The first member is a vector of time
-        values, the second member an instance of weewx.std_unit_system.Value
+        values, the second member an instance of weecore.std_unit_system.Value
         with a value of a vector of data values, and a unit_type given by
         sql_type. 
         
@@ -590,7 +591,7 @@ class Archive(object):
         The second element holds a ValueTuple with the stop times of the aggregation interval.
         The third element holds a ValueTuple with the data aggregation over the interval.
 
-        See the file weewx.units for the definition of a ValueTuple.
+        See the file weecore.units for the definition of a ValueTuple.
         """
 
         start_vec = list()
@@ -605,7 +606,7 @@ class Archive(object):
                 
                 # Check to make sure we have everything:
                 if not aggregate_interval:
-                    raise weewx.ViolatedPrecondition("Aggregation interval missing")
+                    raise weecore.ViolatedPrecondition("Aggregation interval missing")
 
                 sql_str = "SELECT %s(%s), MIN(usUnits), MAX(usUnits) FROM archive "\
                     "WHERE dateTime > ? AND dateTime <= ?" % (aggregate_type, sql_type,)
@@ -618,7 +619,7 @@ class Archive(object):
                     if _rec and _rec[0] is not None:
                         if std_unit_system:
                             if not (std_unit_system == _rec[1] == _rec[2]):
-                                raise weewx.UnsupportedFeature("Unit type cannot change "\
+                                raise weecore.UnsupportedFeature("Unit type cannot change "\
                                                                "within a time interval (%s vs %s vs %s)." %
                                                                (std_unit_system, _rec[1], _rec[2]))
                         else:
@@ -635,7 +636,7 @@ class Archive(object):
                     stop_vec.append(_rec[0])
                     if std_unit_system:
                         if std_unit_system != _rec[2]:
-                            raise weewx.UnsupportedFeature("Unit type cannot change "\
+                            raise weecore.UnsupportedFeature("Unit type cannot change "\
                                                            "within a time interval.")
                     else:
                         std_unit_system = _rec[2]
@@ -643,8 +644,8 @@ class Archive(object):
         finally:
             _cursor.close()
 
-        (time_type, time_group) = weewx.units.getStandardUnitType(std_unit_system, 'dateTime')
-        (data_type, data_group) = weewx.units.getStandardUnitType(std_unit_system, sql_type, aggregate_type)
+        (time_type, time_group) = weecore.units.getStandardUnitType(std_unit_system, 'dateTime')
+        (data_type, data_group) = weecore.units.getStandardUnitType(std_unit_system, sql_type, aggregate_type)
         return (ValueTuple(start_vec, time_type, time_group),
                 ValueTuple(stop_vec, time_type, time_group), 
                 ValueTuple(data_vec, data_type, data_group))
@@ -658,7 +659,7 @@ def reconfig(old_db_dict, new_db_dict, new_unit_system=None,
         with Archive.open_with_create(new_db_dict, new_schema) as new_archive:
 
             # Wrap the input generator in a unit converter.
-            record_generator = weewx.units.GenWithConvert(old_archive.genBatchRecords(), new_unit_system)
+            record_generator = weecore.units.GenWithConvert(old_archive.genBatchRecords(), new_unit_system)
         
             # This is very fast because it is done in a single transaction
             # context:
@@ -683,7 +684,7 @@ class DBBinder(object):
           {
           'Bindings' :     
             'wx_bindings' : {'bind_to': 'archive_sqlite',
-                             'manager': 'weewx.stats.WXDaySummaryArchive'},
+                             'manager': 'weecore.stats.WXDaySummaryArchive'},
 
           'Databases' :
             {'archive_sqlite' : {'root': '/home/weewx',
@@ -725,7 +726,8 @@ def prep_database(config_dict, binding):
     # Get the dictionary
     database_dict = config_dict['Databases'][database_name]
     # Get the manager to be used
-    database_manager = config_dict['Bindings'][binding].get('manager', 'weewx.stats.WXDaySummaryArchive')
+    # TODO: The default should probably not be a weather-specific manager
+    database_manager = config_dict['Bindings'][binding].get('manager', 'weecore.stats.WXDaySummaryArchive')
 
     return (database_manager, database_dict)
 
