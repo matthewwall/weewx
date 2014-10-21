@@ -7,4 +7,4 @@
 #    $Author$
 #    $Date$
 #
-"""Device drivers"""
+"""Device drivers for the weewx weather system"""

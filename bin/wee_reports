@@ -17,8 +17,8 @@ import syslog
 import configobj
 
 import user.extensions #@UnusedImport
-import weewx.station
-import weewx.reportengine
+import weecore.station
+import weecore.reportengine
 
 def gen_all(config_path, gen_ts = None):
     
@@ -34,17 +34,17 @@ def gen_all(config_path, gen_ts = None):
         syslog.syslog(syslog.LOG_CRIT, "wee_reports: Error while parsing configuration file %s" % config_path)
         raise
     # Look for the debug flag. If set, ask for extra logging
-    weewx.debug = int(config_dict.get('debug', 0))
-    if weewx.debug:
+    weecore.debug = int(config_dict.get('debug', 0))
+    if weecore.debug:
         syslog.setlogmask(syslog.LOG_UPTO(syslog.LOG_DEBUG))
     else:
         syslog.setlogmask(syslog.LOG_UPTO(syslog.LOG_INFO))
 
     socket.setdefaulttimeout(10)
     
-    stn_info = weewx.station.StationInfo(**config_dict['Station'])
+    stn_info = weecore.station.StationInfo(**config_dict['Station'])
     
-    t = weewx.reportengine.StdReportEngine(config_dict, stn_info, gen_ts)
+    t = weecore.reportengine.StdReportEngine(config_dict, stn_info, gen_ts)
 
     # Although the report engine inherits from Thread, we can just run it in the main thread:
     t.run()
