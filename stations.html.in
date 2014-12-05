@@ -340,7 +340,7 @@ function draw_ping_histogram(pings, maxpings, total) {
     var barwidth = w / pings.length;
     var unitheight = h / maxpings;
     c.strokeStyle = "#dddddd";
-    for(var i=h; i>=0; i-=5*unitheight) {
+    for(var i=h; i>=0; i-=10*unitheight) {
       c.beginPath();
       c.moveTo(1, i);
       c.lineTo(w, i); 
