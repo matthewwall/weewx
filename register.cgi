@@ -768,7 +768,7 @@ function draw_plot(width, height, stacked, sequential, fill) {
   c.stroke();
 
   /* horizontal axis */
-  var inc = 604800; /* one week */
+  var inc = 2592000; /* 30 days */
   for(var t=starttime; t<now; t+=inc) {
     var v = plotw * (t - starttime) / (now - starttime);
     c.strokeStyle = "#dddddd";
