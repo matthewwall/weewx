@@ -5,6 +5,7 @@
 """Classes and functions for interfacing with a Davis VantagePro, VantagePro2,
 or VantageVue weather station"""
 
+from __future__ import with_statement
 import datetime
 import struct
 import sys
@@ -562,6 +563,7 @@ class Vantage(weewx.drivers.AbstractDevice):
         
         yields: a sequence of dictionaries containing the data
         """
+        import weewx.wxformulas
         
         # Wake up the console...
         self.port.wakeup_console(self.max_tries, self.wait_before_retry)
@@ -588,6 +590,20 @@ class Vantage(weewx.drivers.AbstractDevice):
                     continue
                 # Unpack the raw archive packet:
                 _record = self._unpackArchivePacket(_record_string)
+                
+                # Because the dump command does not go through the normal weewx
+                # engine pipeline, we have to add these important software derived
+                # variables here.
+                try:
+                    T = _record['outTemp']
+                    R = _record['outHumidity']
+                    W = _record['windSpeed']
+                
+                    _record['dewpoint']  = weewx.wxformulas.dewpointF(T, R)
+                    _record['heatindex'] = weewx.wxformulas.heatindexF(T, R)
+                    _record['windchill'] = weewx.wxformulas.windchillF(T, W)
+                except KeyError:
+                    pass
 
                 yield _record
 
@@ -2197,29 +2213,28 @@ class VantageConfigurator(weewx.drivers.AbstractConfigurator):
 
     @staticmethod
     def dump_logger(station, config_dict):
-        import schemas.wview
-        import weedb
         import weewx.manager
-
-        archive_db = config_dict['StdArchive']['archive_database']
-        archive_db_dict = config_dict['Databases'][archive_db]
-        try:
-            archive = weewx.manager.Manager.open(archive_db_dict)
-            print "Opened existing database '%s'" % (archive_db,)
-        except weedb.OperationalError:
-            # Database does not exist. Do an open_with_create:
-            archive = weewx.manager.Manager.open_with_create(archive_db_dict, schemas.wview.schema)
-            print "Created database '%s'" % (archive_db,)
-
-        print "Starting dump ..."
-        nrecs = 0
-        for record in station.genArchiveDump():
-            archive.addRecord(record)
-            nrecs += 1
-            if nrecs%10 == 0:
-                print >>sys.stdout, "Records processed: %d; Timestamp: %s\r" % (nrecs, weeutil.weeutil.timestamp_to_string(record['dateTime'])),
-                sys.stdout.flush()
-        print "\nFinished dump. %d records added" % (nrecs,)
+        ans = None
+        while ans not in ['y', 'n']:
+            print "Proceeding will dump all data in the logger."
+            ans = raw_input("Are you sure you want to proceed (y/n)? ")
+            if ans == 'y':
+                with weewx.manager.open_manager_with_config(config_dict, 'wx_binding',
+                                                            initialize=True,
+                                                            default_binding_dict={'table_name' : 'archive',
+                                                                                  'manager' : 'weewx.wxmanager.WXDaySummaryManager',
+                                                                                  'schema' : 'schemas.wview.schema'}) as archive:
+                    print "Starting dump ..."
+                    nrecs = 0
+                    for record in station.genArchiveDump():
+                        archive.addRecord(record)
+                        nrecs += 1
+                        if nrecs%10 == 0:
+                            print >>sys.stdout, "Records processed: %d; Timestamp: %s\r" % (nrecs, weeutil.weeutil.timestamp_to_string(record['dateTime'])),
+                            sys.stdout.flush()
+                    print "\nFinished dump. %d records added" % (nrecs,)
+            elif ans == 'n':
+                print "Nothing done."
 
     @staticmethod
     def logger_summary(station, dest_path):
@@ -2256,6 +2271,8 @@ class VantageConfEditor(weewx.drivers.AbstractConfEditor):
     def default_stanza(self):
         return """
 [Vantage]
+    # This section is for the Davis Vantage series of weather stations.
+
     # Connection type: serial or ethernet 
     #  serial (the classic VantagePro)
     #  ethernet (the WeatherLinkIP)

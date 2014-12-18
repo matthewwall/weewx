@@ -79,16 +79,16 @@ start_scripts = ['util/init.d/weewx.bsd',
                  'util/init.d/weewx.redhat',
                  'util/init.d/weewx.suse']
 
-service_map = {'weewx.wxengine.StdTimeSynch' : 'prep_services', 
-               'weewx.wxengine.StdConvert'   : 'process_services', 
-               'weewx.wxengine.StdCalibrate' : 'process_services', 
-               'weewx.wxengine.StdQC'        : 'process_services', 
-               'weewx.wxengine.StdArchive'   : 'archive_services',
-               'weewx.wxengine.StdPrint'     : 'report_services', 
-               'weewx.wxengine.StdReport'    : 'report_services'}
+service_map_v2 = {'weewx.wxengine.StdTimeSynch' : 'prep_services', 
+                  'weewx.wxengine.StdConvert'   : 'process_services', 
+                  'weewx.wxengine.StdCalibrate' : 'process_services', 
+                  'weewx.wxengine.StdQC'        : 'process_services', 
+                  'weewx.wxengine.StdArchive'   : 'archive_services',
+                  'weewx.wxengine.StdPrint'     : 'report_services', 
+                  'weewx.wxengine.StdReport'    : 'report_services'}
 
-all_service_groups = ['prep_services', 'process_services', 'archive_services', 
-                      'restful_services', 'report_services']
+minor_comment_block = [""]
+major_comment_block = ["", "##############################################################################", ""]
 
 #==============================================================================
 # install_lib
@@ -409,9 +409,9 @@ def merge_config_files(new_config_path, old_config_path, weewx_root,
             print >>sys.stderr, "You will have to do it manually."
             
         else:
-            # First update to V2.X
+            # First update to the latest v2
             if old_version_number[0:2] >= ['2', '00']:
-                update_to_v2(old_config)
+                update_to_v27(old_config)
 
             # Now update to V3.X
             old_database = update_to_v3(old_config)
@@ -435,7 +435,7 @@ def merge_config_files(new_config_path, old_config_path, weewx_root,
     
     return new_config
 
-def update_to_v2(config_dict):
+def update_to_v27(config_dict):
     """Updates a configuration file to the latest V2.X version.
     Since V2.7 was the last 2.X version, that's our target"""
 
@@ -519,13 +519,14 @@ def update_to_v2(config_dict):
     # See if the engine configuration section has the old-style "service_list":
     if 'Engines' in config_dict and 'service_list' in config_dict['Engines']['WxEngine']:
         # It does. Break it up into five, smaller lists. If a service
-        # does not appear in the dictionary "service_map", meaning we
+        # does not appear in the dictionary "service_map_v2", meaning we
         # do not know what it is, then stick it in the last group we
         # have seen. This should get its position about right.
         last_group = 'prep_services'
         
         # Set up a bunch of empty groups in the right order
-        for group in all_service_groups:
+        for group in ['prep_services', 'process_services', 'archive_services', 
+                      'restful_services', 'report_services']:
             config_dict['Engines']['WxEngine'][group] = list()
 
         # Now map the old service names to the right group
@@ -535,9 +536,9 @@ def update_to_v2(config_dict):
             if svc_name == 'weewx.wxengine.StdRESTful':
                 continue
             # Do we know about this service?
-            if svc_name in service_map:
+            if svc_name in service_map_v2:
                 # Yes. Get which group it belongs to, and put it there
-                group = service_map[svc_name]
+                group = service_map_v2[svc_name]
                 config_dict['Engines']['WxEngine'][group].append(svc_name)
                 last_group = group
             else:
@@ -633,6 +634,13 @@ def save_path(filepath):
     # Sometimes the target has a trailing '/'. This will take care of it:
     filepath = os.path.normpath(filepath)
     newpath = filepath + time.strftime(".%Y%m%d%H%M%S")
+    # Check to see if this name already exists
+    if os.path.exists(newpath):
+        # It already exists. Stick a version number on it:
+        version = 1
+        while os.path.exists(newpath + '-' + str(version)):
+            version += 1
+        newpath = newpath + '-' + str(version)
     shutil.move(filepath, newpath)
     return newpath
 
@@ -739,58 +747,56 @@ def configure_conf(config_fn, info, dryrun=False):
         sys.path = tmp_path
 
     # read the original configuration
-    old_config = configobj.ConfigObj(config_fn, interpolation=False)
+    config = configobj.ConfigObj(config_fn, interpolation=False)
 
+    # determine what driver-specific stanza we will need
     stanza = None
     if editor is not None:
         orig_stanza_text = None
 
         # if a previous stanza exists for this driver, grab it
-        if driver_name in old_config:
-            orig_stanza = configobj.ConfigObj()
-            orig_stanza[driver_name] = old_config[driver_name]
+        if driver_name in config:
+            orig_stanza = configobj.ConfigObj(interpolation=False)
+            orig_stanza[driver_name] = config[driver_name]
             orig_stanza_text = '\n'.join(orig_stanza.write())
 
         # let the driver process the stanza or give us a new one
         stanza_text = editor.get_conf(orig_stanza_text)
         stanza = configobj.ConfigObj(stanza_text.splitlines())
 
-    # copy everything into the new config, put new stanza after [Station]
-    new_config = configobj.ConfigObj(indent_type=old_config.indent_type)
-    new_config.initial_comment = old_config.initial_comment
-    new_config.final_comment = old_config.final_comment
-    for s in old_config:
-        new_config[s] = old_config[s]
-        new_config.comments[s] = old_config.comments[s]
-        new_config.inline_comments[s] = old_config.inline_comments[s]
-        if s == 'Station' and stanza is not None:
-            new_config[driver_name] = stanza[driver_name]
-            new_config.comments[driver_name] = ["", "##############################################################################", ""]
-#            new_config.comments[driver_name] = stanza.comments[driver_name]
-            new_config.inline_comments[driver_name] = stanza.inline_comments[driver_name]
-            new_config[s]['station_type'] = driver_name
+    # put the new stanza immediately after [Station]
+    if stanza is not None and 'Station' in config:
+        # insert the stanza
+        config[driver_name] = stanza[driver_name]
+        config.comments[driver_name] = major_comment_block
+        # reorder the sections
+        idx = config.sections.index(driver_name)
+        config.sections.pop(idx)
+        idx = config.sections.index('Station')
+        config.sections = config.sections[0:idx+1] + [driver_name] + config.sections[idx+1:]
+        # make the stanza the station type
+        config['Station']['station_type'] = driver_name
 
-    # update driver stanza with any overrides from info
-#    if info is not None:
-#        if driver_name in info:
-#            for k in info[driver_name]:
-#                new_config[driver_name][k] = info[driver_name][k]
-
-    # insert any station info
+    # apply any overrides from the info
     if info is not None:
+        # update driver stanza with any overrides from info
+        if driver_name in info:
+            for k in info[driver_name]:
+                config[driver_name][k] = info[driver_name][k]
+        # update station information with info overrides
         for p in ['location', 'latitude', 'longitude', 'altitude']:
             if info.get(p) is not None:
-                new_config['Station'][p] = info[p]
+                config['Station'][p] = info[p]
+        # update units display with any info overrides
         if info.get('units') is not None:
             if info.get('units') == 'metric':
                 print "Using Metric units for display"
-                new_config['StdReport']['StandardReport'].update({
+                config['StdReport']['StandardReport'].update({
                         'Units': {
                             'Groups': {
                                 'group_altitude': 'meter',
                                 'group_degree_day': 'degree_C_day',
                                 'group_pressure': 'mbar',
-                                'group_radiation': 'watt_per_meter_squared',
                                 'group_rain': 'mm',
                                 'group_rainrate': 'mm_per_hour',
                                 'group_speed': 'meter_per_second',
@@ -798,13 +804,12 @@ def configure_conf(config_fn, info, dryrun=False):
                                 'group_temperature': 'degree_C'}}})
             elif info.get('units') == 'us':
                 print "Using US units for display"
-                new_config['StdReport']['StandardReport'].update({
+                config['StdReport']['StandardReport'].update({
                         'Units': {
                             'Groups': {
                                 'group_altitude': 'foot',
                                 'group_degree_day': 'degree_F_day',
                                 'group_pressure': 'inHg',
-                                'group_radiation': 'watt_per_meter_squared',
                                 'group_rain': 'inch',
                                 'group_rainrate': 'inch_per_hour',
                                 'group_speed': 'mile_per_hour',
@@ -812,13 +817,13 @@ def configure_conf(config_fn, info, dryrun=False):
                                 'group_temperature': 'degree_F'}}})
 
     # save the new configuration
-    new_config.filename = "%s.tmp" % config_fn
-    new_config.write()
+    config.filename = "%s.tmp" % config_fn
+    config.write()
 
     # move the original aside
     if not dryrun:
         save_path(config_fn)
-        shutil.move(new_config.filename, config_fn)
+        shutil.move(config.filename, config_fn)
 
 def load_editor(driver):
     """Load the configuration editor from the driver file"""
@@ -1168,7 +1173,7 @@ class Extension(Logger):
             try:
                 cmd = 'dpkg-query -s weewx'
                 p = Popen(cmd, shell=True, stdout=PIPE, stderr=PIPE)
-                (o, e) = p.communicate()
+                (o, _) = p.communicate()
                 for line in o.split('\n'):
                     if line.startswith('Package: weewx'):
                         layout_type = 'deb'
@@ -1180,7 +1185,7 @@ class Extension(Logger):
             try:
                 cmd = 'rpm -q weewx'
                 p = Popen(cmd, shell=True, stdout=PIPE, stderr=PIPE)
-                (o, e) = p.communicate()
+                (o, _) = p.communicate()
                 for line in o.split('\n'):
                     if line.find('weewx') >= 0:
                         layout_type = 'rpm'
@@ -1196,11 +1201,7 @@ class Extension(Logger):
         return layout_type
 
     def verify_layout(self, layout_type):
-        errors = []
-
-        if layout_type == 'deb':
-            layout = dict(self._layouts['pkg'])
-        elif layout_type == 'rpm':
+        if layout_type == 'deb' or layout_type == 'rpm':
             layout = dict(self._layouts['pkg'])
         elif layout_type == 'py':
             layout = dict(self._layouts['py'])
@@ -1220,21 +1221,16 @@ class Extension(Logger):
         else:
             raise Exception("unknown layout type '%s'" % layout_type)
 
+        errors = []
+
         # be sure each destination directory exists
         for x in layout:
             if not os.path.isdir(layout[x]):
                 errors.append("missing directory %s (%s)" % (x, layout[x]))
 
-        # be sure weewx.conf exists and has the new service lists
+        # be sure weewx.conf exists
         fn = os.path.join(layout['CONFIG_ROOT'], 'weewx.conf')
-        if os.path.exists(fn):
-            config = configobj.ConfigObj(fn)
-            for sg in all_service_groups:
-                try:
-                    config['Engine']['Services'][sg]
-                except KeyError, e:
-                    errors.append("[Engine][Services] is missing key %s" % e)
-        else:
+        if not os.path.exists(fn):
             errors.append("no weewx.conf at %s" % fn)
 
         if errors:
@@ -1325,12 +1321,13 @@ class ExtensionInstaller(Logger):
         self.author_email = kwargs.get('author_email')
         self.files = kwargs.get('files', [])
         self.config = kwargs.get('config', {})
-        self.services = {}
-        for sg in all_service_groups:
+        self.service_groups = {}
+        for sg in ['prep_services', 'data_services', 'process_services',
+                   'archive_services', 'restful_services', 'report_services']:
             v = kwargs.get(sg, [])
             if not isinstance(v, list):
                 v = [v]
-            self.services[sg] = v
+            self.service_groups[sg] = v
         self.layout = None
         self.basename = None
         self.doit = True
@@ -1455,12 +1452,17 @@ class ExtensionInstaller(Logger):
         # so do a conditional merge instead.
         conditional_merge(config, cfg)
 
+        # make the formatting match that of the default weewx.conf
+        prettify(config, cfg)
+
         # append services to appropriate lists...
-        for sg in all_service_groups:
-            for s in self.services[sg]:
-                if not isinstance(config['Engine']['Services'][sg], list):
-                    config['Engine']['Services'][sg] = [config['Engine']['Services'][sg]]
-                # ...but only if not already there
+        for sg in self.service_groups:
+            if not sg in config['Engine']['Services']:
+                config['Engine']['Services'][sg] = []
+            elif not isinstance(config['Engine']['Services'][sg], list):
+                config['Engine']['Services'][sg] = [config['Engine']['Services'][sg]]
+            # ... but only if not already there
+            for s in self.service_groups[sg]:
                 if s not in config['Engine']['Services'][sg]:
                     config['Engine']['Services'][sg].append(s)
 
@@ -1477,11 +1479,11 @@ class ExtensionInstaller(Logger):
         config = configobj.ConfigObj(fn)
 
         # remove any services we added
-        for sg in all_service_groups:
-            if self.services[sg]:
+        for sg in self.service_groups:
+            if sg in config['Engine']['Services']:
                 newlist = []
                 for s in config['Engine']['Services'][sg]:
-                    if s not in self.services[sg]:
+                    if s not in self.service_groups[sg]:
                         newlist.append(s)
                 config['Engine']['Services'][sg] = newlist
 
@@ -1527,6 +1529,36 @@ class ExtensionInstaller(Logger):
         self.log("delete %s" % dstdir, level=2)
         if self.doit:
             shutil.rmtree(dstdir, True)
+
+def prettify(config, src):
+    """clean up the config file:
+
+    - put any global stanzas just before StdRESTful
+    - prepend any global stanzas with a line of comment characters
+    - put any StdReport stanzas before ftp and rsync
+    - prepend any StdReport stanzas with a single empty line
+    - prepend any database or databinding stanzas with a single empty line
+    - prepend any restful stanzas with a single empty line
+    """
+    for k in src:
+        if k in ['StdRESTful', 'DataBindings', 'Databases', 'StdReport']:
+            for j in src[k]:
+                if k == 'StdReport':
+                    reorder_sections(config[k], j, 'RSYNC')
+                    reorder_sections(config[k], j, 'FTP')
+                config[k].comments[j] = minor_comment_block
+        else:
+            reorder_sections(config, k, 'StdRESTful')
+            config.comments[k] = major_comment_block
+
+def reorder_sections(c, src, dst):
+    if src not in c.sections or dst not in c.sections:
+        return
+    src_idx = c.sections.index(src)
+    c.sections.pop(src_idx)
+    dst_idx = c.sections.index(dst)
+    c.sections = c.sections[0:dst_idx] + [src] + c.sections[dst_idx:]
+    # if index raises an exception, we want to fail hard
 
 def conditional_merge(a, b):
     """merge fields from b into a, but only if they do not yet exist in a"""
@@ -1751,9 +1783,9 @@ if __name__ == "__main__":
                 # functional installation.
                 info = {'driver': 'weewx.drivers.simulator'}
             else:
-                # this must be a new install, so prompt for station info, driver
-                # type, and driver-specific parameters, but only if '--quiet' is
-                # not specified.
+                # this must be a new install, so prompt for station info,
+                # driver type, and driver-specific parameters, but only if
+                # '--quiet' is not specified.
                 info = prompt_for_info()
                 info['driver'] = prompt_for_driver()
                 info.update(prompt_for_driver_settings(info['driver']))
