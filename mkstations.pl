@@ -95,12 +95,12 @@ if (-f $db) {
 #	my $qry = "select station_url,description,latitude,longitude,station_type,last_seen from (select * from stations order by last_seen asc) t1 where t1.last_seen > $cutoff group by t1.station_url";
         # since doing it in the db query does not work, query for everything
         # then do the filtering in perl.  sigh.
-        my $qry = "select station_url,description,latitude,longitude,station_type,last_seen from stations where last_seen > $cutoff order by last_seen";
+        my $qry = "select station_url,description,latitude,longitude,station_type,last_seen,weewx_info from stations where last_seen > $cutoff order by last_seen";
         my $sth = $dbh->prepare($qry);
 	if ($sth) {
             my %unique;
 	    $sth->execute();
-	    $sth->bind_columns(\my($url,$desc,$lat,$lon,$st,$ts));
+	    $sth->bind_columns(\my($url,$desc,$lat,$lon,$st,$ts,$ver));
 	    while($sth->fetch()) {
 		my %r;
 		$r{url} = $url;
@@ -109,6 +109,7 @@ if (-f $db) {
 		$r{longitude} = $lon;
 		$r{station_type} = $st;
 		$r{last_seen} = $ts;
+                $r{weewx_info} = $ver;
                 $r{sort_key} = $COLLATOR->getSortKey(trim($desc));
                 if(!defined($unique{$url}) || $ts>$unique{$url}->{last_seen}) {
                     $unique{$url} = \%r;
@@ -149,6 +150,7 @@ if(open(OFILE,">$tmpfile")) {
                 print OFILE "    latitude: $rec->{latitude},\n";
                 print OFILE "    longitude: $rec->{longitude},\n";
                 print OFILE "    station: '$rec->{station_type}',\n";
+                print OFILE "    weewx_info: '$rec->{weewx_info}',\n";
                 print OFILE "    last_seen: $rec->{last_seen} },\n";
                 print OFILE "\n";
             }

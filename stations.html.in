@@ -243,6 +243,14 @@ function populate_station_list(sort_metric, sort_order) {
       indices.sort(function(a,b) {
         return compare(sites[b].last_seen, sites[a].last_seen); });
     }
+  } else if (sort_metric == 'weewx_info') {
+    if (sort_order == 'up') {
+      indices.sort(function(a,b) {
+        return compare(sites[a].weewx_info, sites[b].weewx_info); });
+    } else {
+      indices.sort(function(a,b) {
+        return compare(sites[b].weewx_info, sites[a].weewx_info); });
+    }
   }
 
   // ...clear existing list...
@@ -262,6 +270,7 @@ function populate_station_list(sort_metric, sort_order) {
   buttons += create_buttons("Latitude", "latitude");
   buttons += create_buttons("Longitude", "longitude");
   buttons += create_buttons("Station", "station");
+  buttons += create_buttons("Version", "weewx_info");
   buttons += create_buttons("Last Seen", "last_seen");
   td.innerHTML = buttons;
   td.colSpan = "3";
@@ -276,8 +285,7 @@ function populate_station_list(sort_metric, sort_order) {
     tr.appendChild(td);
     var td = document.createElement('td');
     var date = new Date(sites[indices[i]].last_seen * 1000);
-    td.className = 'alignright';
-    td.innerHTML = sites[indices[i]].station + '<br/><small>' + date.toUTCString() + '</small>';
+    td.innerHTML = '<div style="float: left">' + sites[indices[i]].weewx_info + '</div><div style="float: right">' + sites[indices[i]].station + '</div><div style="clear:both; float:right"><small>' + date.toUTCString() + '</small></div>';
     tr.appendChild(td);
     td = document.createElement('td');
     td.id = 'site_' + indices[i];
