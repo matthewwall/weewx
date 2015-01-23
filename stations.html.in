@@ -92,10 +92,13 @@ var infowindow = new google.maps.InfoWindow({
   content: 'nothing selected'
 });
 
+var oldZoomLevel = 0;
+var zoomThreshold = 7; /* when to switch from dots to pins */
 var pingdays = 30; /* number of days in ping histogram */
 var backgroundColor = '#ffffff';
 var highlightColor = '#9fcef9';
 var maxTitleLen = 70;
+var redDotURL = 'http://weewx.com/dot-red.png';
 
 function count_sorter(a,b) {
   if(a == 'total') {
@@ -114,7 +117,7 @@ function count_sorter(a,b) {
   }
 }
 
-function initialize_map() {
+function initialize() {
   var now = Math.round((new Date).getTime() / 1000);
 
   /* create a map with the settings we want */
@@ -132,10 +135,17 @@ function initialize_map() {
     },
     mapTypeId: google.maps.MapTypeId.ROADMAP
   };
-
-  /* populate the map */
   var canvas = document.getElementById("map_canvas");
   map = new google.maps.Map(canvas, settings);
+
+  google.maps.event.addListener(map,'zoom_changed',function(event) {
+    zoomLevel = map.getZoom();
+    if((oldZoomLevel < zoomThreshold && zoomLevel >= zoomThreshold) ||
+       (oldZoomLevel >= zoomThreshold && zoomLevel < zoomThreshold)) {
+      set_marker_image(map);
+    }
+    oldZoomLevel = zoomLevel;
+  });
 
   /* track counts of each station type */
   var counts = {};
@@ -149,12 +159,14 @@ function initialize_map() {
 
   /* loop through all sites to get the data we need */
   for (var i=0; i<sites.length; i++) {
+    /* create the markers */
     var title = get_title(sites[i]);
     var pos = new google.maps.LatLng(sites[i].latitude, sites[i].longitude);
     var mkr = new google.maps.Marker({
       position: pos,
       map: map,
       title: title,
+      icon: redDotURL,
     });
     sites[i].marker = mkr;
     attach_info(map, mkr, i);
@@ -183,6 +195,14 @@ function initialize_map() {
   populate_station_list('description', 'up');
   populate_station_table(counts);
   draw_ping_histogram(pings, maxpings, counts['total']);
+}
+
+function set_marker_image(map) {
+  var z = map.getZoom();
+  var url = z < zoomThreshold ? redDotURL : '';
+  for (var i=0; i<sites.length; i++) {
+    sites[i].marker.setIcon(url);
+  }
 }
 
 function compare(x,y) {
@@ -399,7 +419,7 @@ function attach_station(elem, map, marker, idx) {
   elem.addEventListener('click', function() {
       var str = create_content(idx);
       infowindow.setContent(str);
-      infowindow.open(map, marker);
+      if(marker) infowindow.open(map, marker);
       hide_all_dots();
       show_dot(idx);
     });
@@ -527,7 +547,7 @@ function get_title(x) {
   </script>
 </head>
 
-<body onload="initialize_map(); populate_header('stations');">
+<body onload="initialize(); populate_header('stations');">
   <div id="container">
     <div id="masthead">
       <h1><a href='.'>WeeWX</a></h1>
