@@ -144,6 +144,18 @@ class ValueHelperTest(unittest.TestCase):
         vh = weewx.units.ValueHelper((None, "second", "group_deltatime"))
         self.assertEqual(vh.string(), "   N/A")
         
+    def test_json(self):
+        value_t = (68.0, "degree_F", "group_temperature")
+        c_m = weewx.units.Converter(weewx.units.MetricUnits)
+        vh = weewx.units.ValueHelper(value_t, converter=c_m)
+        self.assertEqual(vh.json(), """[20.0, "degree_C", "group_temperature"]""")
+
+        # Try a vector of values:
+        value_t = ([50, 68, None, 86], "degree_F", "group_temperature")
+        c_m = weewx.units.Converter(weewx.units.MetricUnits)
+        vh = weewx.units.ValueHelper(value_t, converter=c_m)
+        self.assertEqual(vh.json(), """[[10.0, 20.0, null, 30.0], "degree_C", "group_temperature"]""")
+        
 if __name__ == '__main__':
     unittest.main()
     

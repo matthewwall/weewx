@@ -280,16 +280,16 @@ class ObservationBinder(object):
         self.option_dict  = option_dict
 
     def max_ge(self, val):
-        return self._do_query('max_ge', val=val)
+        return self._bind_agg('max_ge', val=val)
 
     def max_le(self, val):
-        return self._do_query('max_le', val=val)
+        return self._bind_agg('max_le', val=val)
 
     def min_le(self, val):
-        return self._do_query('min_le', val=val)
+        return self._bind_agg('min_le', val=val)
 
     def sum_ge(self, val):
-        return self._do_query('sum_ge', val=val)
+        return self._bind_agg('sum_ge', val=val)
 
     def __getattr__(self, aggregate_type):
         """Return statistical summary using a given aggregate type.
@@ -307,8 +307,14 @@ class ObservationBinder(object):
         # This is to get around bugs in the Python version of Cheetah's namemapper:
         if aggregate_type in ['__call__', 'has_key']:
             raise AttributeError
-        return self._do_query(aggregate_type)
+
+        return self._bind_agg(aggregate_type)
     
+    def _bind_agg(self, aggregate_type, val=None):
+        ab = AggregationBinder(aggregate_type, self.obs_type, self.timespan, self.db_lookup, self.data_binding, self.context,
+                               formatter=weewx.units.Formatter(), converter=weewx.units.Converter(), val=val, **self.option_dict)
+        return ab
+        
     @property
     def exists(self):
         return self.db_lookup(self.data_binding).exists(self.obs_type)
@@ -317,13 +323,82 @@ class ObservationBinder(object):
     def has_data(self):
         return self.db_lookup(self.data_binding).has_data(self.obs_type, self.timespan)
 
+#     def _do_query(self, aggregate_type, val=None):
+#         """Run a query against the databases, using the given aggregation type."""
+#         db_manager = self.db_lookup(self.data_binding)
+#         result = db_manager.getAggregate(self.timespan, self.obs_type, aggregate_type, 
+#                                          val=val, **self.option_dict)
+#         return weewx.units.ValueHelper(result, self.context, self.formatter, self.converter)
+        
+#===============================================================================
+#                    Class AggregationBinder
+#===============================================================================
+
+class AggregationBinder(object):
+    """This is the next class in the chain of helper classes. It binds the
+    database, a time period, an observation type, and an aggregation request all together.
+
+    It runs the query against the database, assembles the result, and returns it
+    as a ValueHelper.
+    """
+
+    def __init__(self, aggregate_type, obs_type, timespan, db_lookup, data_binding, context,
+                 formatter=weewx.units.Formatter(), converter=weewx.units.Converter(), val=None, **option_dict):
+        """ Initialize an instance of ObservationBinder
+
+        obs_type: A string with the stats type (e.g., 'outTemp') for which the query is
+        to be done.
+
+        timespan: An instance of TimeSpan holding the time period over which the query is
+        to be run
+
+        db_lookup: A function with call signature db_lookup(data_binding), which
+        returns a database manager and where data_binding is an optional binding
+        name. If not given, then a default binding will be used.
+        
+        data_binding: If non-None, then use this data binding.
+
+        context: A tag name for the timespan. This is something like 'current', 'day',
+        'week', etc. This is used to find an appropriate label, if necessary.
+
+        formatter: An instance of weewx.units.Formatter() holding the formatting
+        information to be used. [Optional. If not given, the default
+        Formatter will be used.]
+
+        converter: An instance of weewx.units.Converter() holding the target unit
+        information to be used. [Optional. If not given, the default
+        Converter will be used.]
+
+        option_dict: Other options which can be used to customize calculations.
+        [Optional.]
+        """
+
+        self.aggregate_type = aggregate_type
+        self.obs_type       = obs_type
+        self.timespan       = timespan
+        self.db_lookup      = db_lookup
+        self.data_binding   = data_binding
+        self.context        = context
+        self.formatter      = formatter
+        self.converter      = converter
+        self.val            = val
+        self.option_dict    = option_dict
+
+    def __str__(self):
+        vh = self._do_query(self.aggregate_type, val=self.val)
+        return str(vh)
+    
+    def __getattr__(self, opt):
+        vh = self._do_query(self.aggregate_type, val=self.val)
+        return str(getattr(vh, opt))
+
     def _do_query(self, aggregate_type, val=None):
         """Run a query against the databases, using the given aggregation type."""
         db_manager = self.db_lookup(self.data_binding)
         result = db_manager.getAggregate(self.timespan, self.obs_type, aggregate_type, 
                                          val=val, **self.option_dict)
         return weewx.units.ValueHelper(result, self.context, self.formatter, self.converter)
-        
+
 #===============================================================================
 #                             Class CurrentObj
 #===============================================================================
