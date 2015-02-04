@@ -55,9 +55,10 @@ SCRIPTNAME=/etc/init.d/$NAME
 #   1 if daemon was already running
 #   2 if daemon could not be started
 # check using ps not the pid file.  pid file could be leftover.
-do_start()
-{
-    NPROC=`ps ax | grep $WEEWX_BIN | grep $NAME.pid | wc -l`
+do_start() {
+    mkdir -p /var/weewx/log
+
+    NPROC=$(count_procs)
     if [ $NPROC != 0 ]; then
 	return 1
     fi
@@ -70,13 +71,35 @@ do_start()
 #   1 if daemon was already stopped
 #   2 if daemon could not be stopped
 #   other if a failure occurred
-do_stop()
-{
+do_stop() {
+    # bail out if the app is not running
+    NPROC=$(count_procs)
+    if [ $NPROC = 0 ]; then
+        return 1
+    fi
+    # bail out if there is no pid file
+    if [ ! -f $PIDFILE ]; then
+        return 1
+    fi
     start-stop-daemon --stop --pidfile $PIDFILE
-    RETVAL="$?"
-    [ "$RETVAL" = 2 ] && return 2
-    # delete the pid file just in case the daemon does not
-    rm -f $PIDFILE
+    # we cannot trust the return value from start-stop-daemon
+    RETVAL=2
+    c=0
+    while [ $c -lt 24 -a "$RETVAL" = "2" ]; do
+        c=`expr $c + 1`
+        # process may not really have completed, so check it
+        NPROC=$(count_procs)
+        if [ $NPROC = 0 ]; then
+	    RETVAL=0
+        else
+            echo -n "."
+            sleep 5
+        fi
+    done
+    if [ "$RETVAL" = "0" -o "$RETVAL" = "1" ]; then
+        # delete the pid file just in case
+        rm -f $PIDFILE
+    fi
     return "$RETVAL"
 }
 
@@ -84,6 +107,11 @@ do_stop()
 do_reload() {
     start-stop-daemon --stop --signal 1 --quiet --pidfile $PIDFILE
     return 0
+}
+
+count_procs() {
+    NPROC=`ps ax | grep $WEEWX_BIN | grep $NAME.pid | wc -l`
+    echo $NPROC
 }
 
 RETVAL=0
@@ -107,7 +135,7 @@ case "$1" in
 	esac
 	;;
     status)
-        NPROC=`ps ax | grep $WEEWX_BIN | grep $NAME.pid | wc -l`
+        NPROC=$(count_procs)
         if [ $NPROC -gt 1 ]; then
             MSG="running multiple times"
 	elif [ $NPROC = 1 ]; then
@@ -115,7 +143,7 @@ case "$1" in
 	else
 	    MSG="not running"
 	fi
-	log_daemon_msg "Status of $DESC:" "$MSG"
+	log_daemon_msg "Status of $DESC" "$MSG"
 	log_end_msg 0
 	RETVAL=0
 	;;
@@ -133,7 +161,7 @@ case "$1" in
 		do_start
 		case "$?" in
 		    0) log_end_msg 0; RETVAL=0 ;;
-		    1) log_end_msg 1; RETVAL=1 ;; # Old process is still running
+		    1) log_end_msg 1; RETVAL=1 ;; # Old process still running
 		    *) log_end_msg 1; RETVAL=1 ;; # Failed to start
 		esac
 		;;

@@ -1,6 +1,74 @@
 weewx change history
 --------------------
 
+3.1.0 XX/XX/XX
+
+Fixed setup.py bug that caused list-drivers to fail on deb and rpm installs.
+
+Added a wait-and-check to the stop option in the weewx.debian rc script.
+
+Fixed bug in the Vantage driver that causes below sea-level altitudes 
+to be read as a large positive number. Also, fixed problem with altitude
+units when doing --info (ticket #42).
+
+Fixed bug in wmr100 driver that causes gust wind direction to be null.
+
+Fixed bug in wmr200 driver that causes gust wind direction to be null.
+
+Fixed ultimeter driver to ensure wind direction is None when no wind speed
+Thanks to user Steve Sykes.
+
+Fixed bug in calculation of inDewpoint.  Thanks to user Howard Walter.
+
+Assign default units for extraHumid3,4,5,6,7, extraTemp4,5,6,7, leafTemp3,4,
+and leafWet1,2.
+
+Use StdWXCalculate to ensure that wind direction is None if no wind speed.
+
+Fixed sign bug in ultimeter driver.  Thanks to user Garrett Power.
+
+Use a sliding window with default period of 15 minutes to calculate the
+rainRate for stations that do not provide it.
+
+Added support for AcuRite weather stations.  Thanks to users Rich of Modern
+Toil, George Nincehelser, Brett Warden, Preston Moulton, and Andy.
+
+The ultimeter driver now reads data as fast as the station can produce it.
+Typically this results in LOOP data 2 or 3 times per second, instead of
+once per second.  Thanks to user Chris Thompstone.
+
+The daily summary for wind now uses type INTEGER for column sumtime,
+like the other observation types.
+
+Utility wee_reports no longer chokes if the optionally-specified timestamp
+is not in the database. Can also use "nearest time" if option 'max_delta'
+is specified in [CheetahGenerator].
+
+Utility wee_config_device can now dump Vantage loggers to metric databases.
+Fixes ticket #40.
+
+Fixed problem where dumping to database could cause stats to get added to
+the daily summaries twice.
+
+Secure FTP (SFTP) sessions are now possible, but don't work very well with
+Microsoft FTP servers. Requires Python v2.7. Will not work with older
+versions of Python. Fixes ticket #37.
+
+WeatherUnderground passwords are now quoted, allowing special characters
+to be used. Fixes ticket #35.
+
+New tag $obs, allowing access to the contents of the skin configuration
+section [Labels][[Generic]]. Fixes ticket #33.
+
+Better error message if there's a parse error in the configuration file.
+
+Added wxformulas for evapotranspiration, humidex, apparent temperature, and
+other calculations.
+
+Added --loop-on-init option for weewxd. If set, the engine will keep retrying
+if the device cannot be loaded. Otherwise, it will exit.
+
+
 3.0.1 12/07/14
 
 Fixed bug in setup.py that would forget to insert device-specific options

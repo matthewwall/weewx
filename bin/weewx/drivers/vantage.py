@@ -1088,7 +1088,7 @@ class Vantage(weewx.drivers.AbstractDevice):
         setup_bits             = self._getEEPROM_value(0x2B)[0]
         self.rain_year_start   = self._getEEPROM_value(0x2C)[0]
         self.archive_interval_ = self._getEEPROM_value(0x2D)[0] * 60
-        self.altitude          = self._getEEPROM_value(0x0F, "<H")[0]
+        self.altitude          = self._getEEPROM_value(0x0F, "<h")[0]
         self.altitude_vt       = weewx.units.ValueTuple(self.altitude, "foot", "group_altitude") 
 
         barometer_unit_code   =  unit_bits & 0x03
@@ -1796,6 +1796,7 @@ class VantageConfigurator(weewx.drivers.AbstractConfigurator):
             _firmware_version = '<Unavailable>'
     
         console_time = station.getConsoleTime()
+        altitude_converted = weewx.units.convert(station.altitude_vt, station.altitude_unit)[0]
     
         print >>dest, """Davis Vantage EEPROM settings:
     
@@ -1819,7 +1820,7 @@ class VantageConfigurator(weewx.drivers.AbstractConfigurator):
       Rain:                         %s
       Wind:                         %s
       """ % (station.hardware_name, _firmware_date, _firmware_version,
-             station.archive_interval, station.altitude, station.altitude_unit,
+             station.archive_interval, altitude_converted, station.altitude_unit,
              station.wind_cup_size, station.rain_bucket_size,
              station.rain_year_start, console_time,
              station.barometer_unit, station.temperature_unit, 
@@ -2224,12 +2225,15 @@ class VantageConfigurator(weewx.drivers.AbstractConfigurator):
                                                             default_binding_dict={'table_name' : 'archive',
                                                                                   'manager' : 'weewx.wxmanager.WXDaySummaryManager',
                                                                                   'schema' : 'schemas.wview.schema'}) as archive:
-                    print "Starting dump ..."
                     nrecs = 0
-                    for record in station.genArchiveDump():
+                    # Wrap the Vantage generator function in a converter, which will convert the units to the
+                    # same units used by the database:
+                    converted_generator = weewx.units.GenWithConvert(station.genArchiveDump(), archive.std_unit_system)
+                    print "Starting dump ..."
+                    for record in converted_generator:
                         archive.addRecord(record)
                         nrecs += 1
-                        if nrecs%10 == 0:
+                        if nrecs % 10 == 0:
                             print >>sys.stdout, "Records processed: %d; Timestamp: %s\r" % (nrecs, weeutil.weeutil.timestamp_to_string(record['dateTime'])),
                             sys.stdout.flush()
                     print "\nFinished dump. %d records added" % (nrecs,)

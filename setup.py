@@ -868,10 +868,11 @@ def prompt_for_driver_settings(driver):
 
 def get_driver_infos():
     """scan the drivers folder and list each driver with its package"""
-    from os import listdir
-    from os.path import isfile, join
-    ddir = 'bin/weewx/drivers'
-    drivers = [ f for f in listdir(ddir) if isfile(join(ddir, f)) and f != '__init__.py' and f[-3:] == '.py' ]
+    if this_dir == '/usr/share/weewx' or this_dir == '/usr/bin':
+        ddir = '/usr/share/weewx/weewx/drivers'
+    else:
+        ddir = os.path.join(this_dir, 'bin/weewx/drivers')
+    drivers = [ f for f in os.listdir(ddir) if os.path.isfile(os.path.join(ddir, f)) and f != '__init__.py' and f[-3:] == '.py' ]
 
     # adjust system path so we can load the drivers
     tmp_path = list(sys.path)
@@ -1141,7 +1142,9 @@ class Extension(Logger):
         self.installer.uninstall()
 
     def verify_installer(self, filename, tmpdir):
-        if os.path.isdir(filename):
+        if not os.path.exists(filename):
+            raise Exception("no such file/folder %s" % filename)
+        elif os.path.isdir(filename):
             basename = os.path.basename(filename)
             extdir = filename
             delete_when_finished = False
@@ -1187,7 +1190,7 @@ class Extension(Logger):
                 p = Popen(cmd, shell=True, stdout=PIPE, stderr=PIPE)
                 (o, _) = p.communicate()
                 for line in o.split('\n'):
-                    if line.find('weewx') >= 0:
+                    if line.find('weewx') >= 0 and line.find('noarch') >= 0:
                         layout_type = 'rpm'
             except:
                 pass

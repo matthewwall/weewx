@@ -87,8 +87,8 @@ Version: 3.0.1
         the examples in place, then your changes will be overwritten the
         next time you do an upgrade.</p>
       <p>A better idea is to put the code in the
-        <span class="symcode">$BIN_ROOT</span><span class="code">/user</span>,
-        directory. For example, copy example code from the
+        <span class="code">user</span>, directory. For example,
+        copy example code from the
         <span class="code">examples</span> directory to the
         <span class="code">user</span> directory, then modify it
         there.  If your modification does not contain much code,
@@ -199,7 +199,8 @@ Version: 3.0.1
           </tr>
           <tr>
             <td class="code first_col">FTP</td>
-            <td>Arranges to upload everything in the <span class="symcode">$HTML_ROOT</span>
+            <td>Arranges to upload everything in the
+              <span class="symcode">HTML_ROOT</span>
               directory up to a remote webserver.</td>
           </tr>
           <tr>
@@ -228,17 +229,20 @@ Version: 3.0.1
         configuration file <span class="code">weewx.conf</span> or the skin
         configuration file <span class="code">skin.conf</span>. </p>
       <p>Like all reports, the FTP and RSYNC "Reports" also use a skin, and
-        include a skin configuration file, although they are quite minimal. </p>
-      <p>Skins live in their own directory located in <a href="#" id="skin-root-description-target">
-          <span class="symcode">$SKIN_ROOT</span></a>.
+        include a skin configuration file, although they are quite minimal.</p>
+      <p>Skins live in their own directory called
+        <span class='code'>skins</span> and referred to as
+        <a href="#" id="skin-root-description-target">
+          <span class="symcode">SKIN_ROOT</span></a>.
       </p>
 
-      <div id="skin-root-description" title="$SKIN_ROOT" style="display:none"><p>The symbol <span class='code'>
-          $SKIN_ROOT</span> is a symbolic name to the location of the directory where
+      <div id="skin-root-description" title="SKIN_ROOT" style="display:none">
+        <p>The symbol <span class='code'>SKIN_ROOT</span> is a symbolic name
+          to the location of the directory where
           your skins are located. It is not to be taken literally. Consult the
-          <a href="usersguide.htm#dir-layout-table">directory layout table</a> in 
-          the User's Guide for its exact location, dependent
-          on how you installed weewx and what operating system you are using</p></div>
+          <a href="usersguide.htm#dir-layout-table">directory layout table</a>
+          in the User's Guide for its exact location, dependent on how you
+          installed weewx and what operating system you are using</p></div>
       <script type="text/javascript">
         $("#skin-root-description-target").click(
           function () {
@@ -325,8 +329,7 @@ Version: 3.0.1
         using 1 May 2014 00:00 PDT as the "Current" time. NB: this example
         assumes you used the <span class="code">setup.py</span> install
         method. Adjust paths as necessary if you used another method.</p>
-      <pre class="tty">cd /home/weewx
-./bin/wee_reports weewx.conf 1398927600</pre>
+      <pre class="tty">wee_reports weewx.conf 1398927600</pre>
     
     <h2>The database</h2>
     <p>
@@ -584,10 +587,9 @@ db_manager.getSql("SELECT SUM(rain) FROM %s "\
     </p>
     <p>
       For the standard skin that comes with <span class="code">weewx</span>,
-      the file is <span class="symcode">$SKIN_ROOT</span><span
-        class="code">/Standard/skin.conf</span>. It includes many, many
-      options that can be changed. For a complete list, see the section
-      <em><a href="#standard_skin">The Standard <span class="code">skin.conf</span></a></em>.
+      the file is <span class="code">skins/Standard/skin.conf</span>.
+      It includes many, many options that can be changed. For a complete list,
+      see the section <em><a href="#standard_skin">The Standard <span class="code">skin.conf</span></a></em>.
     </p>
     <p>
       For example, suppose you wish to use metric units in the
@@ -606,8 +608,8 @@ db_manager.getSql("SELECT SUM(rain) FROM %s "\
         group_radiation   = watt_per_meter_squared
         group_rain        = inch
         group_rainrate    = inch_per_hour
-        group_speed       = mile_per_second
-        group_speed2      = mile_per_second2
+        group_speed       = mile_per_hour
+        group_speed2      = mile_per_hour2
         group_temperature = degree_F
         group_uv          = uv_index 
         group_volt        = volt</pre>
@@ -631,14 +633,16 @@ db_manager.getSql("SELECT SUM(rain) FROM %s "\
       <p>The options that were changed have been <span class="highlight">&nbsp;highlighted&nbsp;</span>.
         Details of the various unit options are given in the
         <em><a href="#units">Appendix: Units</a></em>.</p>
-      <p>Other options are available, such as changing the text label for
-        various observation types. For example, suppose your weather console is
-        actually located in a barn, not indoors, and you want the plot for the
-        temperature at the console to be labeled "Barn Temperature," rather than
-        the default "Inside Temperature." This can be done by changing the <span
-          class="code">inTemp</span> option located in section <span class="code">[Labels][[Generic]]</span>
-        from the default </p>
-      <pre class="tty">[Units]
+    <p>
+      Other options are available, such as changing the text label for various
+      observation types. For example, suppose your weather console is actually
+      located in a barn, not indoors, and you want the plot for the temperature
+      at the console to be labeled "Barn Temperature," rather than the default
+      "Inside Temperature." This can be done by changing the <span class="code">inTemp</span>
+      option located in section <a href="#Labels_Generic"><span class="code">[Labels][[Generic]]</span></a>
+      from the default
+    </p>
+    <pre class="tty">[Units]
     [[Generic]]
         inTemp  = Inside Temperature
         outTemp = Outside Temperature
@@ -660,8 +664,8 @@ db_manager.getSql("SELECT SUM(rain) FROM %s "\
         to see the effects of any changes.</p>
       <p>Revisiting our example, suppose you want two reports, one in US
         Customary, the other in Metric. The former will go in the directory
-        <span class="symcode"> $HTML_ROOT</span>, the latter in a directory,
-        <span class="symcode"> $HTML_ROOT</span><span class="code">/metric</span>.
+        <span class="symcode">HTML_ROOT</span>, the latter in a directory,
+        <span class="symcode">HTML_ROOT</span><span class="code">/metric</span>.
         If you just simply modify <span class="code">skin.conf</span>, you can
         get one, but not both at the same time. Alternatively, you could create
         a whole new skin by copying all the files to a new skin directory
@@ -1234,7 +1238,7 @@ or in foobar units: $day.barometer.min.foobar
 
       <h3>Tag <span class="code">$trend</span></h3>
       <p>The tag <span class="code">$trend</span> is available for time trends,
-        such as barometer trends. Here are some examples:</p>
+        such as changes in barometric pressure. Here are some examples:</p>
       <table class="indent" style="width: 50%" summary="Examples of using unit formats">
         <tbody>
           <tr class="first_row">
@@ -1264,8 +1268,8 @@ or in foobar units: $day.barometer.min.foobar
         </tbody>
       </table>
     <p>
-      Not how you can explicitly specify a value in the tag itself (2nd example
-      above). If you do not specify a value, then a default time
+      Note how you can explicitly specify a value in the tag itself (2nd
+      example above). If you do not specify a value, then a default time
       interval, set by option <span class="code"><a href="#trend">time_delta</a></span>
       in the skin configuration file, will be used. This value can be retrieved
       by using the syntax <span class="code">$trend.time_delta</span> (3rd
@@ -1277,7 +1281,7 @@ or in foobar units: $day.barometer.min.foobar
     <p class="example_output">The barometer trend over 3 hrs is +.03 inHg.</p>
 
     <h3>Tag <span class="code">$unit</span></h3>
-      <p>The unit type, label, and string formats are also available, allowing
+      <p>The type, label, and string formats for all units are also available, allowing
         you to do highly customized labels: </p>
       <table class="indent" style="width: 50%" summary="Examples of using unit formats">
         <tbody>
@@ -1306,7 +1310,36 @@ or in foobar units: $day.barometer.min.foobar
       <p>(assuming metric values have been specified for <span class="code">group_temperature</span>),
         essentially reproducing the results of the simpler tag <span class="code">$day.outTemp.max</span>.
       </p>
-      <h3>Iteration</h3>
+
+    <h3>
+      Tag <span class="code">$obs</span>
+    </h3>
+    <p>
+      The labels used for the various observation types are available using tag
+      <span class="code">$obs</span>. These are basically the values given in
+      the skin dictionary, section <a href="#Labels_Generic"><span
+        class="code">[Labels][[Generic]]</span></a>.
+    </p>
+    <table class="indent" style="width: 50%"
+      summary="Example off using observation labels">
+      <tbody>
+        <tr class="first_row">
+          <td>Tag</td>
+          <td>Results</td>
+        </tr>
+        <tr>
+          <td class="code first_col">$obs.label.outTemp</td>
+          <td class="code">Outside Temperature</td>
+        </tr>
+        <tr>
+          <td class="code first_col">$obs.label.UV</td>
+          <td class="code">UV Index</td>
+        </tr>
+      </tbody>
+    </table>
+
+
+    <h3>Iteration</h3>
       <p>For dot codes using an aggregation <em>e.g.</em>,
         <span class="code">$day</span>, <span class="code">$week</span>,
         <span class="code">$month</span>, <span class="code">$year</span>,
@@ -1838,8 +1871,8 @@ $station.altitude</pre>
           days ago.
         </li>
       </ul>
-      <p>This example is included in the distribution as <span class="symcode">
-          $BIN_ROOT</span><span class="code">/examples/xsearch.py</span>: </p>
+      <p>This example is included in the distribution as
+        <span class="code">examples/xsearch.py</span>: </p>
         <pre class="tty">import datetime
 import time
 
@@ -2019,10 +2052,9 @@ class MyXSearch(SearchList):                                                 # 1
         &lt;td&gt;$seven_day.rain.sum
     &lt;/tr&gt;
 &lt;/table&gt;</pre>
-      <p>If you place a custom generator somewhere other than the
-        <span class="symcode">$BIN_ROOT</span> hierarchy where
-        <span class="code">weewxd</span> resides, you may have to specify its
-        location in the environment variable
+      <p>If you place a custom generator somewhere other than the hierarchy
+        where <span class="code">weewxd</span> resides, you may have to
+        specify its location in the environment variable
         <span class="code">PYTHONPATH</span>
         in the shell where you start weewx:
       </p>
@@ -2444,7 +2476,7 @@ class MyXSearch(SearchList):                                                 # 1
       <p>This section is a reference to the options appearing in the skin
         configuration file.  The default skin is the Standard skin, with a
         skin configuration file located at
-        <span class="symcode">$SKIN_ROOT</span><span class="code">/Standard/skin.conf</span>. </p>
+        <span class="symcode">SKIN_ROOT</span><span class="code">/Standard/skin.conf</span>. </p>
       <p>The most important options, the ones you are likely to have to
         customize, are
         <span class="config_important"><strong>highlighted</strong></span>.</p>
@@ -2717,11 +2749,12 @@ cooling_base = 20.0, degree_C</pre>
                 </ol>
                 <p>This allows you to decide whether or not you want leading zeroes. The 
                 default includes leading zeroes and is &quot;%02d&quot;, &quot;%03d&quot;, &quot;%05.2f&quot;</p>
-      <h3 class="config_section">[[Generic]]</h3>
+      <h3 class="config_section" id="Labels_Generic">[[Generic]]</h3>
       <p>This sub-section specifies default labels to be used for each observation
         type. For example, options </p>
-      <pre class="tty">inTemp = Temperature inside the house
-outTemp = Outside Temperature</pre>
+      <pre class="tty">inTemp  = Temperature inside the house
+outTemp = Outside Temperature
+UV      = UV Index</pre>
       <p>would cause the given labels to be used for plots of <span
           class="code">inTemp</span> and <span class="code">outTemp</span>. 
           If no option is given, then the observation type itself will
@@ -2750,7 +2783,7 @@ outTemp = Outside Temperature</pre>
         template sits in and will also be the directory the results will be
         put in, and <span class="code">F.E</span> is the generated file name.
         So, given a template file with name <span class="code">Acme/index.html.tmpl</span>,
-        the results will be put in <span class="symcode">$HTML_ROOT</span><span class="code">/Acme/index.html</span>. </p>
+        the results will be put in <span class="symcode">HTML_ROOT</span><span class="code">/Acme/index.html</span>. </p>
       <p>The configuration for a group of templates will look something like this:</p>
     <pre class="tty">[CheetahGenerator]
     [[index]]
@@ -3376,7 +3409,7 @@ outTemp = Outside Temperature</pre>
         This could be done by subclassing the default print service <span class="code">StdPrint</span>
         and overriding member function <span class="code">new_loop_packet()</span>.
       </p>
-      <p>Create the file <span class="symcode">$BIN_ROOT</span><span class="code">/user/myprint.py</span>:
+      <p>Create the file <span class="code">user/myprint.py</span>:
       </p>
       <pre class="tty">from weewx.engine import StdPrint
 from weeutil.weeutil import timestamp_to_string
@@ -3413,8 +3446,7 @@ class MyPrint(StdPrint):
         adding the functionality you need. Here is an example that implements an
         alarm, which sends off an email when an arbitrary expression evaluates <span
           class="code">True</span>. This example is included in the standard
-        distribution in directory <span class="symcode">$BIN_ROOT</span><span
-          class="code">/examples</span>.</p>
+        distribution in directory <span class="code">/examples</span>.</p>
       <p>File <span class="code">examples/alarm.py</span>: </p>
       <pre class="tty">import time
 import smtplib
@@ -3545,8 +3577,8 @@ class MyAlarm(StdService):
         member function, <span class="code">self.newArchiveRecord</span>. When
         the event <span class='code'>NEW_ARCHIVE_RECORD</span> occurs,
         the function <span class="code">self.newArchiveRecord</span> will be called. There
-        are many other events that can be interecepted. Look in the file <span
-        class="symcode">$BIN_ROOT</span><span class="code">/weewx/__init__.py</span>.
+        are many other events that can be interecepted. Look in the file
+        <span class="code">weewx/__init__.py</span>.
       </li>
       <li>This is where the test is done for whether or not to sound the
         alarm. The <span class="code">[Alarm]</span> configuration options
@@ -3596,14 +3628,14 @@ class MyAlarm(StdService):
       <p>For most users the default database will work just fine. It has the
         added advantage of being compatible with the wview database.
         Nevertheless, there may be occasions where you may want to add a SQL
-        type to your database, or change its unit system. This section shows you
-        how to do this, using the utility <span class="symcode">$BIN_ROOT</span><span
-          class="code">/wee_config_database</span>.</p>
+        type to your database, or change its unit system. This section shows
+        you how to do this, using the utility 
+        <span class="code">wee_config_database</span>.</p>
       <p>This utility also has the ability to check a SQLite version of the archive
         database for embedded strings (where a float is expected).</p>
       <p>Before starting, it's worth running the utility with the <span class="code">--help</span>
         flag to see how it is used:</p>
-      <pre class="tty"><span class="symcode">$BIN_ROOT</span>/wee_config_database --help</pre>
+      <pre class="tty">wee_config_database --help</pre>
       <p>This will result in an output that looks something like this:</p>
       <pre class="tty">
 Usage: wee_config_database: [config_path] 
@@ -3651,6 +3683,15 @@ appropriate permissions for the requested operation.</pre>
         meter for the electricity consumed during the interval, then store the
         results in the archive database, along with the weather data. How would
         you do this?</p>
+    <p>The steps include:</p>
+    <ol>
+      <li>Create a custom service that retrieves the data</li>
+      <li>Add the new type to the archive database</li>
+      <li>Specify units for the new type</li>
+      <li>Use the new type in templates and plots</li>
+    </ol>
+
+      <h3>Create a custom service</h3>
       <p>First, you would write a custom service that retrieves the electrical
         consumption data and adds it to the archive record. See the section <a
           href="#service_engine">Customizing the weewx service engine</a> for
@@ -3700,7 +3741,7 @@ class AddElectricity(StdService):
         restful_services = weewx.restx.StdStationRegistry, weewx.restx.StdWunderground, weewx.restx.StdPWSweather, weewx.restx.StdCWOP, weewx.restx.StdWOW, weewx.restx.StdAWEKAS
         report_services = weewx.engine.StdPrint, weewx.engine.StdReport</pre>
 
-    <h3 id="add_archive_type">Adding a new type to the archive database</h3>
+    <h3 id="add_archive_type">Add a new type to the archive database</h3>
     <p>
       So, now you have created a new observation type, <span class="code">electricity</span>.
       Trouble is, there is no corresponding type in the schema of the SQL
@@ -3783,7 +3824,7 @@ schema_with_electricity = schemas.wview.schema + [('electricity', 'REAL')]</pre>
           with the <span class="code">--reconfigure</span> option and the path
           to the configuration file:
         </p>
-        <p class="tty"><span class="symcode">$BIN_ROOT</span>/wee_config_database --reconfigure <span class="symcode">$CONFIG_ROOT</span>/weewx.conf</p>
+        <p class="tty">wee_config_database weewx.conf --reconfigure</p>
         <p>
           This will create a new database (nominally, <span class="code">weewx.sdb_new</span>
           if you are using SQLite, <span class="code">weewx_new</span> if you
@@ -3805,7 +3846,7 @@ schema_with_electricity = schemas.wview.schema + [('electricity', 'REAL')]</pre>
           the same name as the old database, or edit <span class="code">weewx.conf</span>
           to use the new database name. To do the former:
         </p>
-        <p>For SQLite:</p> <pre class="tty">cd <span class="symcode">$SQLITE_ROOT</span>
+        <p>For SQLite:</p> <pre class="tty">cd <span class="symcode">SQLITE_ROOT</span>
 mv weewx.sdb_new weewx.sdb</pre>
         <p>For MySQL:</p> <pre class="tty">mysql -u &lt;username&gt; --password=&lt;mypassword&gt;
 <span class="prompt">mysql&gt;</span> DROP DATABASE weewx;   # Delete the old database
@@ -3820,12 +3861,26 @@ mv weewx.sdb_new weewx.sdb</pre>
           startup. Alternatively, it can be done manually using the <span
             class="code">wee_config_database</span> utility and the <span
             class="code">--backfill-daily</span> option:
-        </p> <pre class="tty"><span class="symcode">$BIN_ROOT</span>/wee_config_database --backfill-daily <span
-            class="symcode">$CONFIG_ROOT</span>/weewx.conf</pre>
+        </p>
+        <pre class="tty">wee_config_database weewx.conf --backfill-daily</pre>
       </li>
     </ol>
-    
-    <h3>Using the new type</h3>
+
+    <h3>Specify units for the new type</h3>
+    <p>To make unit conversions and formatting work automatically for the
+      new data type, the data type must be assigned a unit group.</p>
+    <p>Extend the units dictionary by adding entries in the file
+      <span class='code'>user/extensions.py</span></p>
+    <pre class='tty'>import weewx.units
+weewx.units.obs_group_dict['voltage'] = 'group_volt'
+weewx.units.obs_group_dict['electricity'] = 'group_power'</pre>
+    <p>This will make reports and plots use formats and conversions defined
+      for <span class='code'>group_volt</span> whenever they encounter data
+      with type <span class='code'>voltage</span>, and
+      <span class='code'>group_power</span> whenever they encounter data
+      with type <span class='code'>electricity</span>.</p>
+
+    <h3>Use the new type</h3>
       <p>Now you've added a new type. How do you use it? </p>
       <p>Pretty much like any other type. For example, to do a plot of the
         month's electric consumption, totaled by day, add this section to the <span
@@ -3939,14 +3994,14 @@ mv weewx.sdb_new weewx.sdb</pre>
           Now run the utility <span class="code">wee_config_database</span>
           with the <span class="code">--reconfigure</span> option:
         </p>
-        <p class="tty"><span class="symcode">$BIN_ROOT</span>/wee_config_database --reconfigure <span class="symcode">$CONFIG_ROOT</span>/weewx.conf</p>
+        <pre class="tty">wee_config_database weewx.conf --reconfigure</pre>
         <p>
           This will create a new database (nominally,
           <span class="code">weewx.sdb_new</span>
           if you are using SQLite, <span class="code">weewx_new</span> if you
           are using MySQL), using the schema found in
-          <span class="symcode">$BIN_ROOT</span><span class="code">/user/schemas.py</span>, and populate it with data from
-          the old database, while performing the unit conversion.
+          <span class="code">user/schemas.py</span>, and populate it with data
+          from the old database, while performing the unit conversion.
         </p>
       </li>
       <li>
@@ -3963,7 +4018,7 @@ mv weewx.sdb_new weewx.sdb</pre>
           the same name as the old database, or edit <span class="code">weewx.conf</span>
           to use the new database name. To do the former:
         </p>
-        <p>For SQLite:</p> <pre class="tty">cd <span class="symcode">$SQLITE_ROOT</span>
+        <p>For SQLite:</p> <pre class="tty">cd <span class="symcode">SQLITE_ROOT</span>
 mv weewx.sdb_new weewx.sdb</pre>
         <p>For MySQL:</p> <pre class="tty">mysql -u &lt;username&gt; --password=&lt;mypassword&gt;
 <span class="prompt">mysql&gt;</span> DROP DATABASE weewx;   # Delete the old database
@@ -3978,11 +4033,18 @@ mv weewx.sdb_new weewx.sdb</pre>
           startup. Alternatively, it can be done manually using the <span
             class="code">wee_config_database</span> utility and the <span
             class="code">--backfill-daily</span> option:
-        </p> <pre class="tty"><span class="symcode">$BIN_ROOT</span>/wee_config_database --backfill-daily <span
-            class="symcode">$CONFIG_ROOT</span>/weewx.conf</pre>
+        </p>
+        <pre class="tty">wee_config_database weewx.conf --backfill-daily</pre>
       </li>
     </ol>
 
+	<h2>Dropping and rebuilding the daily summaries</h2>
+	<p>The tool <span class="code">wee_config_database</span> can also be used to drop the daily
+	summaries:</p>
+	<pre class="tty">wee_config_database weewx.conf --drop-daily</pre>
+	<p>The summaries will automatically be rebuilt the next time <span class="code">weewx</span> starts,
+	or they can be rebuilt with the tool:</p>
+	<pre class="tty">wee_config_database weewx.conf --backfill-daily</pre>
 
     <h1 id="porting">Porting to new hardware</h1>
       <p>Naturally, this is an advanced topic but, nevertheless, I'd
@@ -4998,6 +5060,37 @@ Options:
         <b>S</b> indicates data calculated by the StdWXCalculate <b>S</b>ervice<br/>
       </p>
 
+<h2 id="acurite_station_data">AcuRite</h2>
+<table class='station_data'>
+  <caption>AcuRite station data</caption>
+  <tbody class='code'>
+  <tr class="first_row">
+    <td style='width:200px'>Observation</td>
+    <td>Loop</td>
+    <td>Archive</td>
+  </tr>
+  <tr><td class='first_col'>barometer</td>   <td>S</td><td> </td></tr>
+  <tr><td class='first_col'>pressure</td>    <td>H</td><td> </td></tr>
+  <tr><td class='first_col'>altimeter</td>   <td>S</td><td> </td></tr>
+  <tr><td class='first_col'>inTemp</td>      <td>H</td><td> </td></tr>
+  <tr><td class='first_col'>outTemp</td>     <td>H</td><td> </td></tr>
+  <tr><td class='first_col'>inHumidity</td>  <td> </td><td> </td></tr>
+  <tr><td class='first_col'>outHumidity</td> <td>H</td><td> </td></tr>
+  <tr><td class='first_col'>windSpeed</td>   <td>H</td><td> </td></tr>
+  <tr><td class='first_col'>windDir</td>     <td>H</td><td> </td></tr>
+  <tr><td class='first_col'>rain</td>        <td>H</td><td> </td></tr>
+  <tr><td class='first_col'>rainRate</td>    <td>S</td><td> </td></tr>
+  <tr><td class='first_col'>dewpoint</td>    <td>S</td><td> </td></tr>
+  <tr><td class='first_col'>windchill</td>   <td>S</td><td> </td></tr>
+  <tr><td class='first_col'>heatindex</td>   <td>S</td><td> </td></tr>
+  <tr><td class='first_col'>rxCheckPercent</td>       <td>H</td><td></td></tr>
+  <tr><td class='first_col'>outTempBatteryStatus</td> <td>H</td><td></td></tr>
+  </tbody>
+</table>
+<p class='station_data_key'>
+Each packet contains a subset of all possible readings.  For example, one type of packet contains <span class='code'>windSpeed</span>, <span class='code'>windDir</span> and <span class='code'>rain</span>.  A different type of packet contains <span class='code'>windSpeed</span>, <span class='code'>outTemp</span> and <span class='code'>outHumidity</span>.
+</p>
+
 <h2 id="cc3000_station_data">CC3000</h2>
 <table class='station_data'>
   <caption>CC3000 station data</caption>
@@ -5017,11 +5110,14 @@ Options:
   <tr><td class='first_col'>windSpeed</td>   <td>H</td><td>H</td></tr>
   <tr><td class='first_col'>windDir</td>     <td>H</td><td>H</td></tr>
   <tr><td class='first_col'>rain</td>        <td>H</td><td>H</td></tr>
+  <tr><td class='first_col'>rainRate</td>    <td>S</td><td>S</td></tr>
   <tr><td class='first_col'>dewpoint</td>    <td>S</td><td>S</td></tr>
   <tr><td class='first_col'>windchill</td>   <td>S</td><td>S</td></tr>
   <tr><td class='first_col'>heatindex</td>   <td>S</td><td>S</td></tr>
   <tr><td class='first_col'>radiation</td>   <td>H</td><td>H</td></tr>
   <tr><td class='first_col'>UV</td>          <td>H</td><td>H</td></tr>
+  <tr><td class='first_col'>consBatteryVoltage</td> <td>H</td><td></td></tr>
+  <tr><td class='first_col'>bkupBatteryVoltage</td> <td>H</td><td></td></tr>
   </tbody>
 </table>
 <p class='station_data_key'>
@@ -5049,13 +5145,15 @@ data are available only with the optional solar radiation sensor.
   <tr><td class='first_col'>windDir</td>     <td>H</td><td>H</td></tr>
   <tr><td class='first_col'>windGust</td>    <td>H</td><td>H</td></tr>
   <tr><td class='first_col'>windGustDir</td> <td>D</td><td>D</td></tr>
-  <tr><td class='first_col'>rainRate</td>    <td>S</td><td>S</td></tr>
   <tr><td class='first_col'>rain</td>        <td>H</td><td>H</td></tr>
+  <tr><td class='first_col'>rainRate</td>    <td>S</td><td>S</td></tr>
   <tr><td class='first_col'>dewpoint</td>    <td>H/S</td><td>S</td></tr>
   <tr><td class='first_col'>windchill</td>   <td>H/S</td><td>S</td></tr>
   <tr><td class='first_col'>heatindex</td>   <td>H/S</td><td>S</td></tr>
   <tr><td class='first_col'>radiation</td>   <td>H</td><td>H</td></tr>
   <tr><td class='first_col'>UV</td>          <td>H</td><td>H</td></tr>
+  <tr><td class='first_col'>rxCheckPercent</td>       <td>H</td><td></td></tr>
+  <tr><td class='first_col'>outTempBatteryStatus</td> <td>H</td><td></td></tr>
   </tbody>
 </table>
 <p class='station_data_key'>
@@ -5083,8 +5181,8 @@ data are available only from 30xx stations.
   <tr><td class='first_col'>windDir</td>     <td>H</td><td> </td></tr>
   <tr><td class='first_col'>windGust</td>    <td>H</td><td> </td></tr>
   <tr><td class='first_col'>windGustDir</td> <td>D</td><td> </td></tr>
-  <tr><td class='first_col'>rainRate</td>    <td>S</td><td> </td></tr>
   <tr><td class='first_col'>rain</td>        <td>H</td><td> </td></tr>
+  <tr><td class='first_col'>rainRate</td>    <td>S</td><td> </td></tr>
   <tr><td class='first_col'>dewpoint</td>    <td>S</td><td> </td></tr>
   <tr><td class='first_col'>windchill</td>   <td>H/S</td><td> </td></tr>
   <tr><td class='first_col'>heatindex</td>   <td>S</td><td> </td></tr>
@@ -5131,8 +5229,8 @@ solar radiation sensor.
   <tr><td class='first_col'>outHumidity</td> <td>H</td><td> </td></tr>
   <tr><td class='first_col'>windSpeed</td>   <td>H</td><td> </td></tr>
   <tr><td class='first_col'>windDir</td>     <td>H</td><td> </td></tr>
-  <tr><td class='first_col'>rainRate</td>    <td>S</td><td> </td></tr>
   <tr><td class='first_col'>rain</td>        <td>H</td><td> </td></tr>
+  <tr><td class='first_col'>rainRate</td>    <td>S</td><td> </td></tr>
   <tr><td class='first_col'>dewpoint</td>    <td>S</td><td> </td></tr>
   <tr><td class='first_col'>windchill</td>   <td>S</td><td> </td></tr>
   <tr><td class='first_col'>heatindex</td>   <td>S</td><td> </td></tr>
@@ -5140,7 +5238,7 @@ solar radiation sensor.
 </table>
 <p class='station_data_key'>
 The <span class='code'>rain</span> and <span class='code'>rainRate</span> are
-available only on stations with the optional rain bucket.
+available only on stations with the optional rain sensor.
 </p>
 <p class='station_data_key'>
 Pressure, inside temperature, and inside humidity data are not available on
@@ -5167,8 +5265,8 @@ all types of Ultimeter stations.
   <tr><td class='first_col'>windDir</td>     <td>H</td><td>H</td></tr>
   <tr><td class='first_col'>windGust</td>    <td>H</td><td>H</td></tr>
   <tr><td class='first_col'>windGustDir</td> <td>H</td><td>H</td></tr>
-  <tr><td class='first_col'>rainRate</td>    <td>H</td><td>H</td></tr>
   <tr><td class='first_col'>rain</td>        <td>H</td><td>H</td></tr>
+  <tr><td class='first_col'>rainRate</td>    <td>H</td><td>H</td></tr>
   <tr><td class='first_col'>dewpoint</td>    <td>S</td><td>S</td></tr>
   <tr><td class='first_col'>windchill</td>   <td>S</td><td>S</td></tr>
   <tr><td class='first_col'>heatindex</td>   <td>S</td><td>S</td></tr>
@@ -5228,8 +5326,8 @@ all types of Ultimeter stations.
   <tr><td class='first_col'>windSpeed</td>   <td>H</td><td> </td></tr>
   <tr><td class='first_col'>windDir</td>     <td>H</td><td> </td></tr>
   <tr><td class='first_col'>windGust</td>    <td>H</td><td> </td></tr>
-  <tr><td class='first_col'>rainRate</td>    <td>H</td><td> </td></tr>
   <tr><td class='first_col'>rain</td>        <td>H</td><td> </td></tr>
+  <tr><td class='first_col'>rainRate</td>    <td>H</td><td> </td></tr>
   <tr><td class='first_col'>dewpoint</td>    <td>S</td><td> </td></tr>
   <tr><td class='first_col'>windchill</td>   <td>S</td><td> </td></tr>
   <tr><td class='first_col'>heatindex</td>   <td>S</td><td> </td></tr>
@@ -5267,8 +5365,8 @@ Each packet contains a subset of all possible readings.  For example, a temperat
   <tr><td class='first_col'>windSpeed</td>   <td>H</td><td>H</td></tr>
   <tr><td class='first_col'>windDir</td>     <td>H</td><td>H</td></tr>
   <tr><td class='first_col'>windGust</td>    <td>H</td><td>H</td></tr>
-  <tr><td class='first_col'>rainRate</td>    <td>H</td><td>H</td></tr>
   <tr><td class='first_col'>rain</td>        <td>H</td><td>H</td></tr>
+  <tr><td class='first_col'>rainRate</td>    <td>H</td><td>H</td></tr>
   <tr><td class='first_col'>dewpoint</td>    <td>S</td><td>S</td></tr>
   <tr><td class='first_col'>windchill</td>   <td>H/S</td><td>H/S</td></tr>
   <tr><td class='first_col'>heatindex</td>   <td>H/S</td><td>H/S</td></tr>
@@ -5309,8 +5407,8 @@ Each packet contains a subset of all possible readings.  For example, a temperat
   <tr><td class='first_col'>windDir</td>     <td>H</td><td> </td></tr>
   <tr><td class='first_col'>windGust</td>    <td>H</td><td> </td></tr>
   <tr><td class='first_col'>windGustDir</td> <td>H</td><td> </td></tr>
-  <tr><td class='first_col'>rainRate</td>    <td>H</td><td> </td></tr>
   <tr><td class='first_col'>rain</td>        <td>H</td><td> </td></tr>
+  <tr><td class='first_col'>rainRate</td>    <td>H</td><td> </td></tr>
   <tr><td class='first_col'>dewpoint</td>    <td>S</td><td> </td></tr>
   <tr><td class='first_col'>windchill</td>   <td>H</td><td> </td></tr>
   <tr><td class='first_col'>heatindex</td>   <td>S</td><td> </td></tr>
@@ -5356,6 +5454,7 @@ Each packet contains a subset of all possible readings.  For example, a temperat
   <tr><td class='first_col'>windSpeed</td>   <td>H</td><td> </td></tr>
   <tr><td class='first_col'>windDir</td>     <td>H</td><td> </td></tr>
   <tr><td class='first_col'>rain</td>        <td>H</td><td> </td></tr>
+  <tr><td class='first_col'>rainRate</td>    <td>S</td><td> </td></tr>
   <tr><td class='first_col'>dewpoint</td>    <td>S</td><td> </td></tr>
   <tr><td class='first_col'>windchill</td>   <td>S</td><td> </td></tr>
   <tr><td class='first_col'>heatindex</td>   <td>S</td><td> </td></tr>
@@ -5382,8 +5481,8 @@ Each packet contains a subset of all possible readings.  For example, a temperat
   <tr><td class='first_col'>windDir</td>     <td>H</td><td>H</td></tr>
   <tr><td class='first_col'>windGust</td>    <td>D</td><td>D</td></tr>
   <tr><td class='first_col'>windGustDir</td> <td>D</td><td>D</td></tr>
-  <tr><td class='first_col'>rainRate</td>    <td>H</td><td>H</td></tr>
   <tr><td class='first_col'>rain</td>        <td>H</td><td>H</td></tr>
+  <tr><td class='first_col'>rainRate</td>    <td>H</td><td>H</td></tr>
   <tr><td class='first_col'>dewpoint</td>    <td>S</td><td>S</td></tr>
   <tr><td class='first_col'>windchill</td>   <td>H/S</td><td>H/S</td></tr>
   <tr><td class='first_col'>heatindex</td>   <td>H/S</td><td>H/S</td></tr>
@@ -5410,8 +5509,8 @@ Each packet contains a subset of all possible readings.  For example, a temperat
   <tr><td class='first_col'>windDir</td>     <td>H</td><td>H</td></tr>
   <tr><td class='first_col'>windGust</td>    <td>H</td><td>H</td></tr>
   <tr><td class='first_col'>windGustDir</td> <td>D</td><td>D</td></tr>
-  <tr><td class='first_col'>rainRate</td>    <td>H</td><td> </td></tr>
   <tr><td class='first_col'>rain</td>        <td>H</td><td>H</td></tr>
+  <tr><td class='first_col'>rainRate</td>    <td>H</td><td> </td></tr>
   <tr><td class='first_col'>dewpoint</td>    <td>S</td><td>S</td></tr>
   <tr><td class='first_col'>windchill</td>   <td>H/S</td><td>H/S</td></tr>
   <tr><td class='first_col'>heatindex</td>   <td>H/S</td><td>H/S</td></tr>

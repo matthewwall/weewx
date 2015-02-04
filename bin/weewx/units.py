@@ -46,6 +46,11 @@ obs_group_dict = ListOfDicts({"altitude"           : "group_altitude",
                               "soilMoist4"         : "group_moisture",
                               "extraHumid1"        : "group_percent",
                               "extraHumid2"        : "group_percent",
+                              "extraHumid3"        : "group_percent",
+                              "extraHumid4"        : "group_percent",
+                              "extraHumid5"        : "group_percent",
+                              "extraHumid6"        : "group_percent",
+                              "extraHumid7"        : "group_percent",
                               "inHumidity"         : "group_percent",
                               "outHumidity"        : "group_percent",
                               "rxCheckPercent"     : "group_percent",
@@ -78,11 +83,17 @@ obs_group_dict = ListOfDicts({"altitude"           : "group_altitude",
                               "extraTemp1"         : "group_temperature",
                               "extraTemp2"         : "group_temperature",
                               "extraTemp3"         : "group_temperature",
+                              "extraTemp4"         : "group_temperature",
+                              "extraTemp5"         : "group_temperature",
+                              "extraTemp6"         : "group_temperature",
+                              "extraTemp7"         : "group_temperature",
                               "heatindex"          : "group_temperature",
                               "heatingTemp"        : "group_temperature",
                               "inTemp"             : "group_temperature",
                               "leafTemp1"          : "group_temperature",
                               "leafTemp2"          : "group_temperature",
+                              "leafTemp3"          : "group_temperature",
+                              "leafTemp4"          : "group_temperature",
                               "outTemp"            : "group_temperature",
                               "soilTemp1"          : "group_temperature",
                               "soilTemp2"          : "group_temperature",
@@ -90,6 +101,8 @@ obs_group_dict = ListOfDicts({"altitude"           : "group_altitude",
                               "soilTemp4"          : "group_temperature",
                               "windchill"          : "group_temperature",
                               "dateTime"           : "group_time",
+                              "leafWet1"           : "group_count",
+                              "leafWet2"           : "group_count",
                               "UV"                 : "group_uv",
                               "consBatteryVoltage" : "group_volt",
                               "heatingVoltage"     : "group_volt",
@@ -944,6 +957,14 @@ class UnitInfoHelper(object):
     def unit_type_dict(self):
         return self.group_unit_dict
     
+class ObsInfoHelper(object):
+    """Helper class to implement the $obs template tag."""    
+    def __init__(self, skin_dict):
+        try:
+            self.label = dict(skin_dict['Labels']['Generic'])
+        except KeyError:
+            self.label = {}
+
 #==============================================================================
 #                             Helper functions
 #==============================================================================
@@ -980,7 +1001,7 @@ def convert(val_t, target_unit_type):
     target_unit_type: The unit type (e.g., "meter", or "mbar") to
     which the value is to be converted. 
     
-    returns: An instance of weewx.ValueTuple, converted into the desired units.
+    returns: An instance of ValueTuple, converted into the desired units.
     """
     # If the value is already in the target unit type, then just return it:
     if val_t[1] == target_unit_type:

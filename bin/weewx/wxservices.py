@@ -1,10 +1,12 @@
-# $Id$
-# Copyright (c) 2009-2014 Tom Keffer <tkeffer@gmail.com>
-# See the file LICENSE.txt for your full rights.
+#
+#    Copyright (c) 2009-2014 Tom Keffer <tkeffer@gmail.com>
+#
+#    See the file LICENSE.txt for your full rights.
+#
+#    $Id$
+#
 
 """Services specific to weather."""
-
-import syslog
 
 import weewx.units
 import weewx.engine
@@ -42,16 +44,18 @@ class StdWXCalculate(weewx.engine.StdService):
         super(StdWXCalculate, self).__init__(engine, config_dict)
 
         # get any configuration settings
-        self.calculations = config_dict.get('StdWXCalculate', {})
+        d = config_dict.get('StdWXCalculate', {})
+        self.rain_period = int(d.get('rain_period', 900))
+        self.calculations = dict()
+        for v in self._dispatch_list:
+            self.calculations[v] = d.get(v, 'prefer_hardware')
 
         # various bits we need for internal housekeeping
         self.altitude_ft = weewx.units.convert(engine.stn_info.altitude_vt, "foot")[0]
         self.t12 = None
         self.last_ts12 = None
         self.arcint = None
-        self.last_rain_arc_ts = None
-        self.last_rain_loop_ts = None
-        self.rain_period = None # specify in seconds to use db query
+        self.rain_events = []
 
         # we will process both loop and archive events
         self.bind(weewx.NEW_LOOP_PACKET, self.new_loop_packet)
@@ -61,9 +65,10 @@ class StdWXCalculate(weewx.engine.StdService):
         self.do_calculations(event.packet, 'loop')
 
     def new_archive_record(self, event):
-        self.do_calculations(event.record)
+        self.do_calculations(event.record, 'archive')
 
-    def do_calculations(self, data_dict, data_type='archive'):
+    def do_calculations(self, data_dict, data_type):
+        self.adjust_winddir(data_dict)
         data_us = weewx.units.to_US(data_dict)
         for obs in self._dispatch_list:
             calc = False
@@ -80,15 +85,22 @@ class StdWXCalculate(weewx.engine.StdService):
         data_x = weewx.units.to_std_system(data_us, data_dict['usUnits'])
         data_dict.update(data_x)
 
+    def adjust_winddir(self, data):
+        """If there is no wind speed, then the wind direction is undefined."""
+        if 'windSpeed' in data and not data['windSpeed']:
+            data['windDir'] = None
+        if 'windGust' in data and not data['windGust']:
+            data['windGustDir'] = None
+
     def calc_dewpoint(self, data, data_type):
         if 'outTemp' in data and 'outHumidity' in data:
             data['dewpoint'] = weewx.wxformulas.dewpointF(
                 data['outTemp'], data['outHumidity'])
 
     def calc_inDewpoint(self, data, data_type):
-        if 'outTemp' in data and 'inHumidity' in data:
+        if 'inTemp' in data and 'inHumidity' in data:
             data['inDewpoint'] = weewx.wxformulas.dewpointF(
-                data['outTemp'], data['inHumidity'])
+                data['inTemp'], data['inHumidity'])
 
     def calc_windchill(self, data, data_type):
         if 'outTemp' in data and 'windSpeed' in data:
@@ -126,46 +138,29 @@ class StdWXCalculate(weewx.engine.StdService):
                 data['pressure'], self.altitude_ft, algorithm='aaNOAA')
 
     # rainRate is simply the amount of rain in a period scaled to quantity/hr.
-    # if the rain_period is defined, then that period is used for archive
-    # records instead of the archive interval.  this will result in a smaller
-    # rainRate that ramps up and ramps down over time.
+    # use a sliding window for the time period and the total rainfall in that
+    # period for the amount of rain.  the window size is controlled by the
+    # rain_period parameter.
     def calc_rainRate(self, data, data_type):
-        if 'rain' in data:
-            if data_type == 'archive' and self.rain_period is not None:
-                # use window of data from database projected to rain/hour.
-                # we must add rain from this record since database may not
-                # yet contain data from this record (and our query
-                # intentionally neglects it).
-                oldrain = self.get_rain(data['dateTime'], self.rain_period)
-                if oldrain is not None and data['rain'] is not None:
-                    allrain = oldrain + data['rain']
-                elif data['rain'] is not None:
-                    allrain = data['rain']
-                elif oldrain is not None:
-                    allrain = oldrain
-                else:
-                    allrain = None
-                data['rainRate'] = weewx.wxformulas.calculate_rain_rate(
-                    allrain,data['dateTime'],data['dateTime']-self.rain_period)
-            elif data_type == 'archive':
-                # for archive records, use rain since last record projected
-                # to amount/hour.
-                data['rainRate'] = weewx.wxformulas.calculate_rain_rate(
-                    data['rain'], data['dateTime'], self.last_rain_arc_ts)
-                self.last_rain_arc_ts = data['dateTime']
-            else:
-                # for loop packets, use rain since last packet projected
-                # to amount/hour.
-                data['rainRate'] = weewx.wxformulas.calculate_rain_rate(
-                    data['rain'], data['dateTime'], self.last_rain_loop_ts)
-                self.last_rain_loop_ts = data['dateTime']
+        # if this is a loop packet then cull and add to the queue
+        if data_type == 'loop':
+            events = []
+            for e in self.rain_events:
+                if e[0] > data['dateTime'] - self.rain_period:
+                    events.append((e[0], e[1]))
+            if 'rain' in data and data['rain']:
+                events.append((data['dateTime'], data['rain']))
+            self.rain_events = events
+        # for both loop and archive, add up the rain...
+        rainsum = 0
+        for e in self.rain_events:
+            rainsum += e[1]
+        # ...then divide by the period and scale to an hour
+        data['rainRate'] = 3600 * rainsum / self.rain_period
 
     def get_arcint(self, data):
         if 'interval' in data and self.arcint != data['interval'] * 60:
             self.arcint = data['interval'] * 60
-            # warn if rain period is not multiple of archive interval
-            if self.arcint is not None and self.rain_period is not None and self.rain_period % self.arcint != 0:
-                syslog.syslog(syslog.LOG_INFO, "StdWXCalculate: rain_period (%s) is not a multiple of archive_interval (%s)" % (self.rain_period, self.arcint))
 
     def get_rain(self, ts, interval=3600):
         """Get the quantity of rain from the past interval seconds.  We

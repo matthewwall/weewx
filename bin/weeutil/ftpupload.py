@@ -27,7 +27,8 @@ class FtpUpload(object):
                  port      = 21,
                  name      = "FTP", 
                  passive   = True, 
-                 max_tries = 3):
+                 max_tries = 3,
+                 secure    = False):
         """Initialize an instance of FtpUpload.
         
         After initializing, call method run() to perform the upload.
@@ -46,6 +47,8 @@ class FtpUpload(object):
         
         max_tries: How many times to try creating a directory or uploading
         a file before giving up [Optional. Default is 3]
+        
+        secure: Set to True to attempt a secure FTP (SFTP) session.
         """
         self.server      = server
         self.user        = user
@@ -56,22 +59,47 @@ class FtpUpload(object):
         self.name        = name
         self.passive     = passive
         self.max_tries   = max_tries
+        self.secure      = secure
 
     def run(self):
         """Perform the actual upload.
         
         returns: the number of files uploaded."""
         
+        if self.secure:
+            try:
+                FTPClass = ftplib.FTP_TLS
+            except AttributeError:
+                FTPClass = ftplib.FTP
+                syslog.syslog(syslog.LOG_DEBUG, "ftpupload: Your version of Python does not support SFTP. Using unsecure connection.")
+                self.secure = False
+        else:
+            FTPClass = ftplib.FTP
+        
         # Get the timestamp and members of the last upload:
         (timestamp, fileset) = self.getLastUpload()
 
         n_uploaded = 0
         try:
-            ftp_server = ftplib.FTP()
+            if self.secure:
+                syslog.syslog(syslog.LOG_DEBUG, "ftpupload: Attempting secure connection to %s" % self.server)
+                ftp_server = FTPClass()
+            else:
+                syslog.syslog(syslog.LOG_DEBUG, "ftpupload: Attempting connection to %s" % self.server)
+                ftp_server = FTPClass()
             ftp_server.connect(self.server, self.port)
+
+            # Uncommenting the following line will send lots of debug information to stdout:
             #ftp_server.set_debuglevel(1)
+
             ftp_server.login(self.user, self.password)
             ftp_server.set_pasv(self.passive)
+            if self.secure:
+                ftp_server.prot_p()
+                syslog.syslog(syslog.LOG_DEBUG, "ftpupload: Secure connection to %s" % self.server)
+            else:
+                syslog.syslog(syslog.LOG_DEBUG, "ftpupload: Connected to %s" % self.server)
+                
             
             # Walk the local directory structure
             for (dirpath, unused_dirnames, filenames) in os.walk(self.local_root):
@@ -106,7 +134,7 @@ class FtpUpload(object):
                             ftp_server.storbinary(STOR_cmd, fd)
                         except ftplib.all_errors, e:
                             # Unsuccessful. Log it and go around again.
-                            syslog.syslog(syslog.LOG_ERR, "ftpupload: attempt #%d. Failed uploading %s to %s. Reason: %s" %
+                            syslog.syslog(syslog.LOG_ERR, "ftpupload: Attempt #%d. Failed uploading %s to %s. Reason: %s" %
                                                           (count+1, full_remote_path, self.server, e))
                             ftp_server.set_pasv(self.passive)
                         else:

@@ -30,7 +30,10 @@ import weeutil.weeutil
 from weeutil.weeutil import to_bool, to_int
 
 class BreakLoop(Exception):
-    pass
+    """Exception raised when it's time to break the main loop."""
+
+class InitializationError(weewx.WeeWxIOError):
+    """Exception raised when unable to initialize the console."""
 
 # All existent service groups:
 all_service_groups = ['prep_services', 'data_services', 'process_services',
@@ -101,10 +104,8 @@ class StdEngine(object):
             # Call it with the configuration dictionary as the only argument:
             self.console = loader_function(config_dict, self)
         except Exception, ex:
-            # Caught unrecoverable error. Log it:
-            syslog.syslog(syslog.LOG_CRIT, "engine: Unable to load driver: %s" % ex)
-            # Reraise the exception:
-            raise
+            # Signal that we have an initialization error:
+            raise InitializationError(ex)
         
     def preLoadServices(self, config_dict):
         
@@ -754,11 +755,12 @@ class StdReport(StdService):
 
     def shutDown(self):
         if self.thread:
+            syslog.syslog(syslog.LOG_INFO, "engine: Shutting down StdReport thread")
             self.thread.join(20.0)
             if self.thread.isAlive():
                 syslog.syslog(syslog.LOG_ERR, "engine: Unable to shut down StdReport thread")
             else:
-                syslog.syslog(syslog.LOG_DEBUG, "engine: Shut down StdReport thread.")
+                syslog.syslog(syslog.LOG_DEBUG, "engine: StdReport thread has been terminated")
         self.thread = None
         self.launch_time = None
 
@@ -808,11 +810,6 @@ def main(options, args, EngineClass=StdEngine) :
         syslog.syslog(syslog.LOG_INFO, "engine: pid file is %s" % options.pidfile)
         daemon.daemonize(pidfile=options.pidfile)
 
-    # If an exception occurs the first time through, then the problem is most
-    # likely a configuration problem.  But, if it happens later, it could be
-    # I/O error and it is worth retrying
-    successful_init = False
-    
     while True:
 
         os.chdir(cwd)
@@ -832,18 +829,30 @@ def main(options, args, EngineClass=StdEngine) :
 
             # Create and initialize the engine
             engine = EngineClass(config_dict)
-            successful_init = True
     
             syslog.syslog(syslog.LOG_INFO, "engine: Starting up weewx version %s" % weewx.__version__)
 
             # Start the engine
             engine.run()
     
+        # Catch any console initialization error:
+        except InitializationError, e:
+            # Log it:
+            syslog.syslog(syslog.LOG_CRIT, "engine: Unable to load driver: %s" % e)
+            # See if we should loop, waiting for the console to be ready, or exit:
+            if options.loop_on_init:
+                syslog.syslog(syslog.LOG_CRIT, "    ****  Waiting 60 seconds then retrying...")
+                time.sleep(60)
+                syslog.syslog(syslog.LOG_NOTICE, "engine: retrying...")
+            else:
+                syslog.syslog(syslog.LOG_CRIT, "    ****  Exiting...")
+                sys.exit(weewx.IO_ERROR)
+
         # Catch any recoverable weewx I/O errors:
         except weewx.WeeWxIOError, e:
             # Caught an I/O error. Log it, wait 60 seconds, then try again
             syslog.syslog(syslog.LOG_CRIT, "engine: Caught WeeWxIOError: %s" % e)
-            if options.exit or not successful_init:
+            if options.exit:
                 syslog.syslog(syslog.LOG_CRIT, "    ****  Exiting...")
                 sys.exit(weewx.IO_ERROR)
             syslog.syslog(syslog.LOG_CRIT, "    ****  Waiting 60 seconds then retrying...")
@@ -853,7 +862,7 @@ def main(options, args, EngineClass=StdEngine) :
         except weedb.OperationalError, e:
             # Caught a database error. Log it, wait 120 seconds, then try again
             syslog.syslog(syslog.LOG_CRIT, "engine: Caught database OperationalError: %s" % e)
-            if options.exit :
+            if options.exit:
                 syslog.syslog(syslog.LOG_CRIT, "    ****  Exiting...")
                 sys.exit(weewx.DB_ERROR)
             syslog.syslog(syslog.LOG_CRIT, "    ****  Waiting 2 minutes then retrying...")
@@ -874,7 +883,7 @@ def main(options, args, EngineClass=StdEngine) :
             syslog.syslog(syslog.LOG_INFO, "engine: Terminating weewx version %s" % weewx.__version__)
             sys.exit()
 
-        # For command-line, catch any keyboard interrupts and log them:
+        # Catch any keyboard interrupts and log them
         except KeyboardInterrupt:
             syslog.syslog(syslog.LOG_CRIT,"engine: Keyboard interrupt.")
             # Reraise the exception (this should cause the program to exit)
@@ -902,8 +911,9 @@ def getConfiguration(config_path):
         syslog.syslog(syslog.LOG_CRIT, "engine: Unable to open configuration file %s" % config_path)
         # Reraise the exception (this should cause the program to exit)
         raise
-    except configobj.ConfigObjError:
+    except configobj.ConfigObjError, e:
         syslog.syslog(syslog.LOG_CRIT, "engine: Error while parsing configuration file %s" % config_path)
+        syslog.syslog(syslog.LOG_CRIT, "****    Reason: '%s'" % e)
         raise
 
     syslog.syslog(syslog.LOG_INFO, "engine: Using configuration file %s" % config_path)
